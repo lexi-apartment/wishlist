@@ -140,6 +140,15 @@ input[type="text"], input[type="number"], input[type="tel"], textarea, select, i
 .tools .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .tools .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .tools hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+.pip:disabled { cursor: default; }
+.comments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.comment { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.chead { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ctext { white-space: pre-wrap; overflow-wrap: anywhere; }
+.cform { display: flex; flex-direction: column; gap: 12px; }
+.cform .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.check { display: flex; gap: 10px; align-items: center; }
+.check input { width: 20px; height: 20px; flex: none; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 16px; z-index: 30; }
 .dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px; max-width: 380px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .dialog .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -188,6 +197,21 @@ footer { display: flex; justify-content: center; }
     <div class="sechead"><h2 id="h-big">Chip in for big stuff</h2><button class="btn small" id="addBig" type="button" hidden>+ Add big item</button></div>
     <p id="bigIntro"></p>
     <ul class="rows" id="bigList"></ul>
+  </section>
+
+  <section aria-labelledby="h-comments" style="display:flex;flex-direction:column;gap:14px">
+    <h2 id="h-comments">Leave a comment</h2>
+    <form class="cform" id="commentForm" autocomplete="off">
+      <div class="field"><label for="c-text" id="c-label">Your comment</label><textarea id="c-text" rows="3" maxlength="500"></textarea></div>
+      <label class="check" for="c-anon"><input type="checkbox" id="c-anon"><span>Post as anonymous</span></label>
+      <p class="hint" id="c-as"></p>
+      <p class="hint" id="c-anon-hint" hidden></p>
+      <div class="buttons">
+        <button class="btn primary" id="c-post" type="submit">Post</button>
+        <button class="btn ghost" id="c-cancel" type="button" hidden>Cancel</button>
+      </div>
+    </form>
+    <ul class="comments" id="commentList"></ul>
   </section>
 
   <section class="tools" id="tools" aria-labelledby="h-tools" hidden>
@@ -245,7 +269,7 @@ footer { display: flex; justify-content: center; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, addDoc, writeBatch, query, orderBy } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { firebaseConfig, HOST_EMAIL } from "./firebase-config.js";
 
 const $ = (s) => document.querySelector(s);
@@ -283,7 +307,10 @@ const DEFAULTS = {
   msgLabel: "Message (you can change it)",
   askTitle: "Did you swish?",
   askYes: "Yes, I did",
-  askNo: "No"
+  askNo: "No",
+  commentsHeading: "Leave a comment",
+  commentLabel: "Your comment",
+  anonHint: "The host can still see who you are."
 };
 const OPTIONAL = { intro: true, credit: true };
 const TEXT_FIELDS = [
@@ -292,7 +319,8 @@ const TEXT_FIELDS = [
   ['bigHeading', 'Big stuff: heading', 'input'], ['bigIntro', 'Big stuff: description', 'area'], ['chipBtn', 'Big stuff: open button', 'input'],
   ['closeBtn', 'Big stuff: close button', 'input'], ['amountLabel', 'Big stuff: question above the amount', 'input'],
   ['swishBtn', 'Swish button', 'input'], ['msgLabel', 'Big stuff: message label', 'input'],
-  ['askTitle', 'After Swish: question', 'input'], ['askYes', 'After Swish: yes button', 'input'], ['askNo', 'After Swish: no button', 'input']
+  ['askTitle', 'After Swish: question', 'input'], ['askYes', 'After Swish: yes button', 'input'], ['askNo', 'After Swish: no button', 'input'],
+  ['commentsHeading', 'Comments: heading', 'input'], ['commentLabel', 'Comments: text above the box', 'input'], ['anonHint', 'Comments: note under the anonymous box', 'input']
 ];
 let textOv = {};
 function T(key) {
@@ -308,6 +336,9 @@ function renderStatic() {
   $('#h-list').textContent = T('smallHeading');
   $('#h-big').textContent = T('bigHeading');
   $('#bigIntro').textContent = T('bigIntro');
+  $('#h-comments').textContent = T('commentsHeading');
+  $('#c-label').textContent = T('commentLabel');
+  renderCommentForm();
 }
 function buildTextForm() {
   const box = $('#textFields');
@@ -350,7 +381,8 @@ if (configured) {
 }
 
 const state = {
-  items: [], claims: new Map(), chipins: [], msgs: {}, pendingSwish: null, host: {}, myName: '',
+  items: [], claims: new Map(), chipins: [], comments: [], msgs: {}, pendingSwish: null, host: {}, myName: '',
+  uid: null, authFailed: false, editingComment: null, confirmCommentDel: null, claimNames: new Map(), commentAuthors: new Map(),
   isHost: false, hostMode: false, editing: null, confirmDel: false, openBig: null, amounts: {},
   pending: new Set(), itemsLoaded: false, slow: false, autoOpened: false
 };
@@ -366,7 +398,8 @@ const regularItems = () => state.items.filter((i) => !i.big);
 const bigItems = () => state.items.filter((i) => i.big);
 const qtyOf = (i) => Math.max(1, Math.min(24, parseInt(i.qty, 10) || 1));
 const claimAt = (item, n) => state.claims.get(item.id + '_' + n) || null;
-const isMine = (c) => !!c && !!state.myName.trim() && String(c.byName || '').trim().toLowerCase() === state.myName.trim().toLowerCase();
+const isMine = (c) => !!c && !!state.uid && c.uid === state.uid;
+const canUndo = (c) => !!c && (isMine(c) || state.isHost);
 
 /* ---------- rendering ---------- */
 function renderHeader() {
@@ -386,6 +419,7 @@ function renderHeader() {
   }
   let msg = '';
   if (!db) msg = 'This page is not connected to its database yet. The host still has to finish the setup.';
+  else if (state.authFailed) msg = "Couldn't connect this device" + (state.authError ? ' (' + state.authError + ')' : '') + ", so ticking things off and commenting won't work. Try opening this page in Chrome or Safari.";
   else if (state.slow && !state.itemsLoaded) msg = 'Still trying to reach the list. It may be out of date.';
   $('#notice').textContent = msg;
   const tb = $('#toolsBtn');
@@ -442,10 +476,11 @@ function renderList() {
     return;
   }
   items.forEach((it) => {
-    const q = qtyOf(it), taken = [];
-    for (let n = 1; n <= q; n++) { const c = claimAt(it, n); if (c) taken.push(c); }
-    const who = {};
-    taken.forEach((c) => { const nm = c.byName || 'Someone'; who[nm] = (who[nm] || 0) + 1; });
+    const q = qtyOf(it), taken = [], who = {};
+    for (let n = 1; n <= q; n++) {
+      const c = claimAt(it, n);
+      if (c) { taken.push(c); const nm = state.claimNames.get(it.id + '_' + n) || 'Someone'; who[nm] = (who[nm] || 0) + 1; }
+    }
     const whoText = (state.isHost && state.hostMode) ? Object.keys(who).map((nm) => nm + (who[nm] > 1 ? ' ×' + who[nm] : '')).join(', ') : '';
     const covered = taken.length >= q;
     let meta;
@@ -456,16 +491,16 @@ function renderList() {
     if (q === 1) {
       const c1 = claimAt(it, 1);
       act.append(h('button', {
-        class: 'btn ' + (c1 ? (isMine(c1) ? 'mine' : 'taken') : ''), type: 'button',
+        class: 'btn ' + (c1 ? (isMine(c1) ? 'mine' : 'taken') : ''), type: 'button', disabled: !!c1 && !canUndo(c1),
         'aria-pressed': c1 ? 'true' : 'false', onclick: () => toggle(it, 1)
-      }, c1 ? T('boughtBtn') : T('buyBtn')));
+      }, c1 ? (canUndo(c1) ? T('boughtBtn') : '✓ Bought') : T('buyBtn')));
     } else {
       for (let k = 1; k <= q; k++) {
         const n = k, c = claimAt(it, n);
-        const label = c ? ('Number ' + n + ' of ' + q + ' is bought. Tap to undo.') : ('Mark number ' + n + ' of ' + q + ' as bought');
+        const label = c ? ('Number ' + n + ' of ' + q + ' is bought.' + (canUndo(c) ? ' Tap to undo.' : '')) : ('Mark number ' + n + ' of ' + q + ' as bought');
         const initial = c ? '✓' : '';
         act.append(h('button', {
-          class: 'pip' + (c ? (isMine(c) ? ' mine' : ' taken') : ''), type: 'button',
+          class: 'pip' + (c ? (isMine(c) ? ' mine' : ' taken') : ''), type: 'button', disabled: !!c && !canUndo(c),
           'aria-pressed': c ? 'true' : 'false', 'aria-label': label, title: label, onclick: () => toggle(it, n)
         }, initial));
       }
@@ -584,23 +619,30 @@ function renderTools() {
   fillTextForm();
 }
 
-function renderAll() { renderStatic(); renderHeader(); renderList(); renderBig(); renderTools(); }
+function renderAll() { renderStatic(); renderHeader(); renderList(); renderBig(); renderTools(); renderComments(); }
 
 /* ---------- actions ---------- */
 async function toggle(item, n) {
   if (!db) return;
-  if (!state.myName.trim()) {
+  if (!state.myName.trim() && !state.claims.has(item.id + '_' + n)) {
     toast('Save your name at the top first.');
     $('#myName').focus();
     return;
   }
+  if (!state.uid) { noUidToast(); return; }
   const key = item.id + '_' + n;
+  if (state.claims.has(key) && !canUndo(state.claims.get(key))) return;
   if (state.pending.has(key)) return;
   state.pending.add(key);
   try {
-    const ref = doc(db, 'claims', key);
-    if (state.claims.has(key)) await deleteDoc(ref);
-    else await setDoc(ref, { item: item.id, n, byName: state.myName.trim().slice(0, 40), at: Date.now() });
+    const b = writeBatch(db);
+    const ref = doc(db, 'claims', key), nref = doc(db, 'claimNames', key);
+    if (state.claims.has(key)) { b.delete(ref); b.delete(nref); }
+    else {
+      b.set(ref, { item: item.id, n, uid: state.uid, at: Date.now() });
+      b.set(nref, { name: state.myName.trim().slice(0, 40), uid: state.uid });
+    }
+    await b.commit();
   } catch (err) {
     toast("Couldn't save that. Try again.");
   } finally { state.pending.delete(key); }
@@ -663,9 +705,15 @@ async function deleteItem() {
   if (!state.confirmDel) { state.confirmDel = true; renderTools(); return; }
   try {
     for (let n = 1; n <= qtyOf(e); n++) {
-      if (state.claims.has(e.id + '_' + n)) await deleteDoc(doc(db, 'claims', e.id + '_' + n));
+      if (state.claims.has(e.id + '_' + n)) {
+        await deleteDoc(doc(db, 'claims', e.id + '_' + n));
+        await deleteDoc(doc(db, 'claimNames', e.id + '_' + n));
+      }
     }
-    for (const c of state.chipins.filter((x) => x.item === e.id)) await deleteDoc(doc(db, 'chipins', c.id));
+    for (const c of state.chipins.filter((x) => x.item === e.id)) {
+      await deleteDoc(doc(db, 'chipins', c.id));
+      await deleteDoc(doc(db, 'chipinDetails', c.id));
+    }
     await deleteDoc(doc(db, 'items', e.id));
     state.editing = null; state.confirmDel = false; renderTools();
   } catch (err) { toast("Couldn't delete that. Try again."); }
@@ -720,7 +768,7 @@ $('#nameForm').addEventListener('submit', (ev) => {
   if (!v) return;
   state.myName = v;
   try { localStorage.setItem('hw-name', v); } catch (err) { /* no storage */ }
-  renderNameBar(); renderList(); toast('Name saved');
+  renderNameBar(); renderList(); renderCommentForm(); toast('Name saved');
 });
 renderNameBar();
 $('#toolsBtn').addEventListener('click', () => { state.hostMode = !state.hostMode; renderAll(); });
@@ -736,10 +784,127 @@ $('#addBig').addEventListener('click', () => startAdd('big'));
 $('#loginBtn').addEventListener('click', async () => {
   if (!auth) { toast('The database is not connected yet.'); return; }
   try {
-    if (auth.currentUser) await signOut(auth);
+    if (auth.currentUser && !auth.currentUser.isAnonymous) await signOut(auth);
     else await signInWithPopup(auth, new GoogleAuthProvider());
   } catch (err) { toast("Login didn't finish. Try again."); }
 });
+
+function noUidToast() {
+  toast(state.authFailed
+    ? "Couldn't connect this device" + (state.authError ? ' (' + state.authError + ')' : '') + '. Try Chrome or Safari.'
+    : 'Still connecting. Try again in a moment.');
+}
+
+/* ---------- host-only details (names behind ticks and anonymous comments) ---------- */
+let hostUnsubs = [];
+function setHostSubs(on) {
+  hostUnsubs.forEach((u) => u()); hostUnsubs = [];
+  state.claimNames = new Map(); state.commentAuthors = new Map();
+  if (!on || !db) return;
+  hostUnsubs.push(onSnapshot(collection(db, 'claimNames'), (snap) => {
+    const m = new Map();
+    snap.docs.forEach((d) => m.set(d.id, (d.data() || {}).name || ''));
+    state.claimNames = m; renderList();
+  }, () => { /* names stay hidden */ }));
+  hostUnsubs.push(onSnapshot(collection(db, 'commentAuthors'), (snap) => {
+    const m = new Map();
+    snap.docs.forEach((d) => m.set(d.id, (d.data() || {}).name || ''));
+    state.commentAuthors = m; renderComments();
+  }, () => { /* names stay hidden */ }));
+}
+
+/* ---------- comments ---------- */
+function fmtTime(ms) {
+  try { return new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
+}
+function renderCommentForm() {
+  const anon = $('#c-anon').checked;
+  const nm = state.myName.trim();
+  const hint = $('#c-anon-hint'); hint.hidden = !anon; hint.textContent = T('anonHint');
+  $('#c-as').textContent = anon ? 'Shown as Anonymous.' : (nm ? 'Posting as ' + nm + '.' : 'Save your name at the top, or tick anonymous.');
+  const editing = !!state.editingComment;
+  $('#c-post').textContent = editing ? 'Save changes' : 'Post';
+  $('#c-cancel').hidden = !editing;
+}
+function renderComments() {
+  const ul = $('#commentList'); ul.replaceChildren();
+  const list = state.comments.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  if (!list.length) { ul.append(h('li', { class: 'empty', text: 'No comments yet. Be the first!' })); return; }
+  list.forEach((c) => {
+    const mine = !!state.uid && c.uid === state.uid;
+    let who = c.anonymous ? 'Anonymous' : (c.name || 'Someone');
+    const real = state.commentAuthors.get(c.id);
+    if (c.anonymous && state.isHost && real) who += ' (' + real + ')';
+    if (mine) who += ' (you)';
+    const act = h('div', { class: 'editbar' });
+    if (mine) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => startEditComment(c) }, 'Edit'));
+    if (mine || state.isHost) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => deleteComment(c) }, state.confirmCommentDel === c.id ? 'Tap again to delete' : 'Delete'));
+    ul.append(h('li', { class: 'comment' },
+      h('div', { class: 'chead' }, h('b', { text: who }), h('span', { class: 'meta', text: fmtTime(c.at) + (c.editedAt ? ' · edited' : '') })),
+      h('p', { class: 'ctext', text: c.text }),
+      act.childNodes.length ? act : null));
+  });
+}
+function startEditComment(c) {
+  state.editingComment = c.id; state.confirmCommentDel = null;
+  $('#c-text').value = c.text || ''; $('#c-anon').checked = !!c.anonymous;
+  renderCommentForm(); renderComments();
+  $('#commentForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#c-text').focus();
+}
+function cancelEditComment() {
+  state.editingComment = null; $('#c-text').value = ''; $('#c-anon').checked = false;
+  renderCommentForm();
+}
+async function postComment(ev) {
+  ev.preventDefault();
+  if (!db) return;
+  if (!state.uid) { noUidToast(); return; }
+  const text = $('#c-text').value.trim();
+  if (!text) { toast('Write something first.'); return; }
+  const anonymous = $('#c-anon').checked;
+  const nm = state.myName.trim();
+  if (!anonymous && !nm) { toast('Save your name at the top, or tick anonymous.'); return; }
+  const btn = $('#c-post'); btn.disabled = true;
+  try {
+    const b = writeBatch(db);
+    if (state.editingComment) {
+      const id = state.editingComment;
+      const cur = state.comments.find((x) => x.id === id);
+      b.set(doc(db, 'comments', id), { text: text.slice(0, 500), name: anonymous ? '' : (nm || (cur && cur.name) || '').slice(0, 40), anonymous, editedAt: Date.now() }, { merge: true });
+      if (anonymous && nm) b.set(doc(db, 'commentAuthors', id), { name: nm.slice(0, 40), uid: state.uid });
+      if (!anonymous) b.delete(doc(db, 'commentAuthors', id));
+      await b.commit();
+      state.editingComment = null;
+      toast('Comment updated');
+    } else {
+      const ref = doc(collection(db, 'comments'));
+      b.set(ref, { text: text.slice(0, 500), name: anonymous ? '' : nm.slice(0, 40), anonymous, uid: state.uid, at: Date.now() });
+      if (anonymous && nm) b.set(doc(db, 'commentAuthors', ref.id), { name: nm.slice(0, 40), uid: state.uid });
+      await b.commit();
+      toast('Comment posted');
+    }
+    $('#c-text').value = ''; $('#c-anon').checked = false;
+    renderCommentForm();
+  } catch (err) { toast("Couldn't save the comment. Try again."); }
+  finally { btn.disabled = false; }
+}
+async function deleteComment(c) {
+  if (!db) return;
+  if (state.confirmCommentDel !== c.id) { state.confirmCommentDel = c.id; renderComments(); return; }
+  try {
+    const b = writeBatch(db);
+    b.delete(doc(db, 'comments', c.id));
+    b.delete(doc(db, 'commentAuthors', c.id));
+    await b.commit();
+    state.confirmCommentDel = null;
+    if (state.editingComment === c.id) cancelEditComment();
+    toast('Comment deleted');
+  } catch (err) { toast("Couldn't delete that. Try again."); }
+}
+$('#commentForm').addEventListener('submit', postComment);
+$('#c-anon').addEventListener('change', renderCommentForm);
+$('#c-cancel').addEventListener('click', cancelEditComment);
 
 /* ---------- "Did you swish?" ---------- */
 const PENDING_KEY = 'hw-pending';
@@ -769,7 +934,12 @@ async function answerYes() {
   const p = state.pendingSwish; if (!p || !db) return;
   const btn = $('#askYes'); btn.disabled = true;
   try {
-    await addDoc(collection(db, 'chipins'), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at: Date.now() });
+    const b = writeBatch(db);
+    const ref = doc(collection(db, 'chipins'));
+    const at = Date.now();
+    b.set(ref, { item: p.item, at });
+    b.set(doc(db, 'chipinDetails', ref.id), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at });
+    await b.commit();
     savePending(null); $('#askBox').hidden = true; state.openBig = null; renderBig();
     toast('Thank you! 💛');
   } catch (err) { toast("Couldn't save that. Try again."); }
@@ -798,9 +968,19 @@ if (db) {
   const slowTimer = setTimeout(() => { state.slow = true; renderHeader(); }, 10000);
 
   onAuthStateChanged(auth, (u) => {
-    const ok = !!u && !!HOST_EMAIL && String(u.email || '').toLowerCase() === String(HOST_EMAIL).toLowerCase();
-    if (u && !ok) { toast("That Google account isn't the host."); signOut(auth); return; }
+    if (!u) {
+      state.uid = null; state.isHost = false; state.hostMode = false; state.editing = null;
+      setHostSubs(false);
+      $('#loginBtn').textContent = 'Host login';
+      renderAll();
+      signInAnonymously(auth).catch((err) => { state.authFailed = true; state.authError = (err && err.code) || ''; renderHeader(); });
+      return;
+    }
+    const ok = !u.isAnonymous && !!HOST_EMAIL && String(u.email || '').toLowerCase() === String(HOST_EMAIL).toLowerCase();
+    if (!u.isAnonymous && !ok) { toast("That Google account isn't the host."); signOut(auth); return; }
+    state.uid = u.uid; state.authFailed = false;
     state.isHost = ok;
+    setHostSubs(ok);
     if (!ok) { state.hostMode = false; state.editing = null; }
     $('#loginBtn').textContent = ok ? 'Host log out' : 'Host login';
     if (ok && state.itemsLoaded && !state.items.length && !state.autoOpened) { state.autoOpened = true; state.hostMode = true; }
@@ -821,6 +1001,11 @@ if (db) {
     state.claims = m;
     renderHeader(); renderList();
   }, () => { /* claims stay empty */ });
+
+  onSnapshot(collection(db, 'comments'), (snap) => {
+    state.comments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderComments();
+  }, () => { /* comments stay empty */ });
 
   onSnapshot(collection(db, 'chipins'), (snap) => {
     state.chipins = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
