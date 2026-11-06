@@ -769,7 +769,7 @@ async function answerYes() {
   const p = state.pendingSwish; if (!p || !db) return;
   const btn = $('#askYes'); btn.disabled = true;
   try {
-    await addDoc(collection(db, 'chipins'), { item: p.item, name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at: Date.now() });
+    await addDoc(collection(db, 'chipins'), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at: Date.now() });
     savePending(null); $('#askBox').hidden = true; state.openBig = null; renderBig();
     toast('Thank you! 💛');
   } catch (err) { toast("Couldn't save that. Try again."); }
