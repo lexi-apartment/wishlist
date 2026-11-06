@@ -371,6 +371,14 @@ function iconFor(name) {
   return '🎁';
 }
 
+/* ---------- host notifications (ntfy) ---------- */
+// Secret topic name. In the ntfy app, subscribe to exactly this name. Leave '' to turn notifications off.
+const NTFY_TOPIC = 'alexis-apt-HSuQwJ7BqvxbfyPZfwo';
+function notify(text) {
+  if (!NTFY_TOPIC || state.isHost) return;
+  try { fetch('https://ntfy.sh/' + NTFY_TOPIC, { method: 'POST', body: text }).catch(() => {}); } catch (e) { /* ignore */ }
+}
+
 /* ---------- firebase ---------- */
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && !String(firebaseConfig.apiKey).startsWith('YOUR_'));
 let db = null, auth = null;
@@ -642,7 +650,9 @@ async function toggle(item, n) {
       b.set(ref, { item: item.id, n, uid: state.uid, at: Date.now() });
       b.set(nref, { name: state.myName.trim().slice(0, 40), uid: state.uid });
     }
+    const wasTaken = state.claims.has(key);
     await b.commit();
+    if (!wasTaken) notify('🎁 Someone ticked off: ' + item.name);
   } catch (err) {
     toast("Couldn't save that. Try again.");
   } finally { state.pending.delete(key); }
@@ -882,6 +892,7 @@ async function postComment(ev) {
       b.set(ref, { text: text.slice(0, 500), name: anonymous ? '' : nm.slice(0, 40), anonymous, uid: state.uid, at: Date.now() });
       if (anonymous && nm) b.set(doc(db, 'commentAuthors', ref.id), { name: nm.slice(0, 40), uid: state.uid });
       await b.commit();
+      notify('💬 New comment on the page');
       toast('Comment posted');
     }
     $('#c-text').value = ''; $('#c-anon').checked = false;
@@ -941,6 +952,7 @@ async function answerYes() {
     b.set(ref, { item: p.item, at });
     b.set(doc(db, 'chipinDetails', ref.id), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: state.myName.trim().slice(0, 40), amount: p.amount, at });
     await b.commit();
+    notify('💸 Someone chipped in for: ' + String(p.itemName || ''));
     savePending(null); $('#askBox').hidden = true; state.openBig = null; renderBig();
     toast('Thank you! 💛');
   } catch (err) { toast("Couldn't save that. Try again."); }
