@@ -24,6 +24,8 @@
   --moss-soft: #DDEBE0;
   --tile: #E1E8E3;
   --focus: #1B5FAA;
+  --blue: #1D63D6;
+  --blue-ink: #FFFFFF;
   --display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
 }
@@ -31,7 +33,7 @@
   :root {
     --bg: #11191B; --surface: #172326; --ink: #E7EEEA; --muted: #9AABAB; --line: #2A393C;
     --accent: #EE7387; --accent-ink: #2A0A10; --moss: #86C79B; --moss-ink: #0F2418;
-    --moss-soft: #1D3527; --tile: #213034; --focus: #7DB6F0;
+    --moss-soft: #1D3527; --tile: #213034; --focus: #7DB6F0; --blue: #7DB6F0; --blue-ink: #0B2038;
     color-scheme: dark;
   }
 }
@@ -96,7 +98,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .meta { font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 250px; }
 .row.covered .tile, .row.covered .name { opacity: .55; }
-.row.covered .name { text-decoration: line-through; text-decoration-thickness: 1px; }
+.row.covered .name { text-decoration-thickness: 1px; }
 .pip {
   width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--muted); background: transparent;
   color: var(--moss-ink); font: 600 0.8rem var(--body); cursor: pointer; display: grid; place-items: center; padding: 0;
@@ -149,6 +151,9 @@ input[type="text"], input[type="number"], input[type="tel"], textarea, select, i
 .cform .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .check { display: flex; gap: 10px; align-items: center; }
 .check input { width: 20px; height: 20px; flex: none; }
+.btn.pioneer { background: var(--blue); color: var(--blue-ink); border-color: var(--blue); }
+.btn.pioneer:hover { filter: brightness(1.1); border-color: var(--blue); }
+.donebadge { font-weight: 600; color: var(--moss); padding: 6px 0; }
 .comment.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
 .comment { transition: box-shadow .3s; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 16px; z-index: 30; }
@@ -228,6 +233,7 @@ footer { display: flex; justify-content: center; }
           <select id="f-kind"><option value="regular">Small things by your discretion</option><option value="big">Chip in for big stuff</option></select>
         </div>
       </div>
+      <label class="check" id="f-done-wrap" for="f-done" hidden><input type="checkbox" id="f-done"><span>Already got it (closes chip in for this item)</span></label>
       <div class="field"><label for="f-photo">Photo (optional, otherwise a picture is picked from the name)</label><input type="file" id="f-photo" accept="image/*"></div>
       <div class="buttons">
         <button class="btn primary" type="submit" id="itemSave">Add to list</button>
@@ -305,28 +311,29 @@ function h(tag, props, ...kids) {
 /* ---------- editable text ---------- */
 const DEFAULTS = {
   title: "Welcome to Alexis' new apartment",
-  intro: "Hi! Thanks for clicking this link. I know it looks much, but I did not want to end up with six toasters 💀 I also need to buy literally everything a human needs to live... except moomin mugs... (Not that I'm not open to getting more 👀)\nCurrently I do not have any chairs or couch for any of you to sit on during the housewarming party. I'm working on it 😭\nAnyways, your contribution will be greatly appreciated! See you soon!",
+  intro: "Hi! Thanks for clicking this link. I know it looks like a lot, but I did not want to end up with six shoe horns or toasters 💀 Also if you know me, I do not like getting impractical knick-knacks...\n\nI also need to buy literally everything a human needs to live... except moomin mugs... (Not that I'm not open to getting more 👀)\nCurrently I do not have any chairs or a couch for any of you to sit on during the housewarming party. I'm working on it 😭\n\nEither way, your contribution will be greatly appreciated and help me host a great housewarming party! See you soon!\n\nPLEASE NOTE that I also gladly accept your secondhand items, if you have something barely used lying around, preferably in a similar style 🥹",
   credit: "The code was written by Claude but the texts were written by me 100%.",
-  smallHeading: "Small things by your discretion",
+  smallHeading: "Items at your discretion (Just trust me bro)",
   buyBtn: "I got this 😎",
   boughtBtn: "✓ Bought, undo",
-  bigHeading: "Chip in for big stuff",
-  bigIntro: "Tap an item, type how much you'd like to send, and Swish!",
+  bigHeading: "Chip in for the big stuff, or matter-of-taste items!",
+  bigIntro: "Swish, then come back and mark Yes!",
   chipBtn: "Chip in",
   closeBtn: "Close",
   amountLabel: "How much do you want to send?",
   swishBtn: "Open Swish",
   msgLabel: "Message (you can change it)",
   askTitle: "Did you swish?",
-  askYes: "Yes, I did",
-  askNo: "No",
+  askYes: "Yes, you cheapskate",
+  askNo: "Nah, let me look around more",
   commentsHeading: "Leave a comment",
-  commentLabel: "Your comment",
-  anonHint: "The host can still see who you are.",
-  tipText: "💡If you're not buying all the {n}, you can leave a comment down there with a link or model, so someone else can buy the rest",
+  commentLabel: "Leave a comment (or more)",
+  anonHint: "You can also leave links to show everyone else which style you went for.",
+  tipText: "💡If you're not buying all the {n} {item}, you can leave a comment with a link or a model, so someone else can buy the rest?",
   tipYes: "I can do that!",
   tipNo: "Nah",
-  followBtn: "Follow the pioneer!"
+  followBtn: "Check out the pioneer!",
+  doneLabel: "✅ Already got it"
 };
 const OPTIONAL = { intro: true, credit: true };
 const TEXT_FIELDS = [
@@ -337,7 +344,7 @@ const TEXT_FIELDS = [
   ['swishBtn', 'Swish button', 'input'], ['msgLabel', 'Big stuff: message label', 'input'],
   ['askTitle', 'After Swish: question', 'input'], ['askYes', 'After Swish: yes button', 'input'], ['askNo', 'After Swish: no button', 'input'],
   ['commentsHeading', 'Comments: heading', 'input'], ['commentLabel', 'Comments: text above the box', 'input'], ['anonHint', 'Comments: note under the anonymous box', 'input'],
-  ['tipText', 'Multiple items: popup text ({n} = how many)', 'area'], ['tipYes', 'Multiple items: popup yes button', 'input'], ['tipNo', 'Multiple items: popup no button', 'input'], ['followBtn', 'Multiple items: follow button', 'input']
+  ['tipText', 'Multiple items: popup text ({n} = how many, {item} = item name in bold)', 'area'], ['tipYes', 'Multiple items: popup yes button', 'input'], ['tipNo', 'Multiple items: popup no button', 'input'], ['followBtn', 'Multiple items: follow button', 'input'], ['doneLabel', 'Big stuff: label when already got it', 'input']
 ];
 let textOv = {};
 function T(key) {
@@ -504,11 +511,11 @@ function followBtn(item, covered) {
   if (covered || qtyOf(item) < 2) return null;
   const c = pioneerFor(item);
   if (!c || isMine(c)) return null;
-  return h('button', { class: 'btn small', type: 'button', style: 'align-self:flex-start;margin-top:6px', onclick: () => goToComment(c.id) }, T('followBtn'));
+  return h('button', { class: 'btn small pioneer', type: 'button', style: 'align-self:flex-start;margin-top:6px', onclick: () => goToComment(c.id) }, T('followBtn'));
 }
 function tipAfterToggle(item, added) {
   clearTimeout(tipTimers[item.id]);
-  if (!added || state.isHost || qtyOf(item) < 2 || tipDeclined.has(item.id)) return;
+  if (!added || qtyOf(item) < 2 || tipDeclined.has(item.id)) return;
   tipTimers[item.id] = setTimeout(() => {
     const it = state.items.find((x) => x.id === item.id) || item;
     const q = qtyOf(it);
@@ -517,11 +524,17 @@ function tipAfterToggle(item, added) {
     if (!mine || have >= q) return;
     if (state.comments.some((c) => c.item === it.id && isMine(c))) return;
     showTip(it);
-  }, 10000);
+  }, 7000);
 }
 function showTip(item) {
   state.tipItem = item.id;
-  $('#tipText').textContent = T('tipText').replace('{n}', qtyOf(item));
+  const tp = $('#tipText'); tp.replaceChildren();
+  const bu = (t) => h('b', { text: String(t), style: 'text-decoration: underline; text-underline-offset: 3px' });
+  T('tipText').split(/(\{n\}|\{item\})/).forEach((part) => {
+    if (part === '{n}') tp.append(bu(qtyOf(item)));
+    else if (part === '{item}') tp.append(bu(item.name));
+    else tp.append(document.createTextNode(part));
+  });
   $('#tipYes').textContent = T('tipYes');
   $('#tipNo').textContent = T('tipNo');
   $('#tipBox').hidden = false;
@@ -618,6 +631,7 @@ function fillReceipt(out, item) {
 
 function chipSummary(item) {
   const n = state.chipins.filter((c) => c.item === item.id).length;
+  if (item.done && n === 0) return '';
   return n === 0 ? 'Be the first to chip in' : (n === 1 ? '1 person chipped in' : n + ' people chipped in');
 }
 function msgFor(item) {
@@ -630,16 +644,17 @@ function renderBig() {
   const ul = $('#bigList'); ul.replaceChildren();
   if (!items.length) ul.append(h('li', { class: 'empty', text: 'Nothing here yet. Use + Add big item.' }));
   items.forEach((it) => {
-    const open = state.openBig === it.id;
+    const done = !!it.done;
+    const open = !done && state.openBig === it.id;
     const head = h('div', { class: 'head' },
       tile(it),
       h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', 'data-chip': it.id, text: chipSummary(it) })),
-      h('div', { class: 'act' }, h('button', {
+      h('div', { class: 'act' }, done ? h('span', { class: 'donebadge', text: T('doneLabel') }) : h('button', {
         class: 'btn' + (open ? '' : ' primary'), type: 'button', 'aria-expanded': open ? 'true' : 'false',
         onclick: () => { if (!open && !state.myName.trim()) { toast('Save your name at the top first.'); $('#myName').focus(); return; } state.openBig = open ? null : it.id; renderBig(); }
       }, open ? T('closeBtn') : T('chipBtn'))),
       editLink(it));
-    const li = h('li', { class: 'row bigrow' }, head);
+    const li = h('li', { class: 'row bigrow' + (done ? ' covered' : '') }, head);
     if (open) {
       const out = h('div', { 'aria-live': 'polite' });
       const input = h('input', {
@@ -673,6 +688,8 @@ function renderTools() {
   $('#f-qty').value = e ? qtyOf(e) : 1;
   $('#f-kind').value = e && e.big ? 'big' : 'regular';
   $('#f-qty').disabled = $('#f-kind').value === 'big';
+  $('#f-done').checked = !!(e && e.done);
+  $('#f-done-wrap').hidden = $('#f-kind').value !== 'big';
   $('#f-photo').value = '';
   $('#itemSave').textContent = e ? 'Save changes' : 'Add to list';
   $('#itemCancel').hidden = !e;
@@ -722,7 +739,7 @@ function startEdit(item) {
 function startAdd(kind) {
   state.editing = null; state.confirmDel = false; state.hostMode = true;
   renderTools();
-  $('#f-kind').value = kind; $('#f-qty').disabled = kind === 'big';
+  $('#f-kind').value = kind; $('#f-qty').disabled = kind === 'big'; $('#f-done').checked = false; $('#f-done-wrap').hidden = kind !== 'big';
   $('#tools').scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#f-name').focus();
 }
@@ -755,7 +772,7 @@ async function saveItem(ev) {
       const url = await shrinkToDataUrl(file).catch(() => null);
       if (url) photo = url; else toast("That photo couldn't be used. The item was saved without a new photo.");
     }
-    const data = { name, qty, big, photo, createdAt: state.editing ? (state.editing.createdAt || Date.now()) : Date.now() };
+    const data = { name, qty, big, done: big && $('#f-done').checked, photo, createdAt: state.editing ? (state.editing.createdAt || Date.now()) : Date.now() };
     if (state.editing) await setDoc(doc(db, 'items', state.editing.id), data);
     else await addDoc(collection(db, 'items'), data);
     state.editing = null; state.confirmDel = false;
@@ -844,7 +861,7 @@ $('#textForm').addEventListener('submit', saveText);
 $('#textReset').addEventListener('click', resetText);
 $('#itemCancel').addEventListener('click', () => { state.editing = null; state.confirmDel = false; renderTools(); renderList(); renderBig(); });
 $('#itemDelete').addEventListener('click', deleteItem);
-$('#f-kind').addEventListener('change', (e) => { $('#f-qty').disabled = e.target.value === 'big'; });
+$('#f-kind').addEventListener('change', (e) => { $('#f-qty').disabled = e.target.value === 'big'; $('#f-done-wrap').hidden = e.target.value !== 'big'; });
 $('#addSmall').addEventListener('click', () => startAdd('regular'));
 $('#addBig').addEventListener('click', () => startAdd('big'));
 $('#loginBtn').addEventListener('click', async () => {
