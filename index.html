@@ -549,7 +549,7 @@ function fillReceipt(out, item) {
         h('button', { class: 'btn small', type: 'button', onclick: () => copyText(host.phone, numEl) }, 'Copy')),
       h('dt', { text: 'Amount' }), h('dd', { text: amt + ' kr' })),
     h('div', { style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px' },
-      h('a', { class: 'btn primary', href: swishUrl(host.phone, amt, msgFor(item)), target: '_blank', rel: 'noopener noreferrer', onclick: () => markPending(item, amt) }, T('swishBtn')))
+      h('a', { class: 'btn primary', href: swishUrl(host.phone, amt, msgFor(item)), target: '_blank', rel: 'noopener noreferrer', onclick: (ev) => { if (!state.myName.trim()) { ev.preventDefault(); toast('Save your name at the top first.'); $('#myName').focus(); return; } markPending(item, amt); } }, T('swishBtn')))
   );
 }
 
@@ -959,6 +959,11 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', armPending);
 window.addEventListener('pageshow', () => { if (state.pendingSwish && state.pendingSwish.armed) showAsk(); });
 state.pendingSwish = loadPending();
+
+try {
+  console.log('%cYo trying to hack me? 👀', 'font:700 22px sans-serif;color:#B3293C');
+  console.log('%cAll the data you can see here are just test data! 😛', 'font:600 14px sans-serif');
+} catch (e) { /* no console */ }
 
 buildTextForm();
 renderAll();
