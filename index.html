@@ -652,7 +652,7 @@ async function toggle(item, n) {
     }
     const wasTaken = state.claims.has(key);
     await b.commit();
-    if (!wasTaken) notify('🎁 Someone ticked off: ' + item.name);
+    notify(wasTaken ? '↩️ Someone un-ticked: ' + item.name : '🎁 Someone ticked off: ' + item.name);
   } catch (err) {
     toast("Couldn't save that. Try again.");
   } finally { state.pending.delete(key); }
@@ -886,6 +886,7 @@ async function postComment(ev) {
       if (!anonymous) b.delete(doc(db, 'commentAuthors', id));
       await b.commit();
       state.editingComment = null;
+      notify('✏️ A comment was edited');
       toast('Comment updated');
     } else {
       const ref = doc(collection(db, 'comments'));
@@ -910,6 +911,7 @@ async function deleteComment(c) {
     await b.commit();
     state.confirmCommentDel = null;
     if (state.editingComment === c.id) cancelEditComment();
+    notify('🗑️ A comment was deleted');
     toast('Comment deleted');
   } catch (err) { toast("Couldn't delete that. Try again."); }
 }
