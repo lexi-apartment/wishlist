@@ -149,6 +149,8 @@ input[type="text"], input[type="number"], input[type="tel"], textarea, select, i
 .cform .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .check { display: flex; gap: 10px; align-items: center; }
 .check input { width: 20px; height: 20px; flex: none; }
+.comment.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+.comment { transition: box-shadow .3s; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 16px; z-index: 30; }
 .dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px; max-width: 380px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .dialog .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -206,6 +208,7 @@ footer { display: flex; justify-content: center; }
       <label class="check" for="c-anon"><input type="checkbox" id="c-anon"><span>Post as anonymous</span></label>
       <p class="hint" id="c-as"></p>
       <p class="hint" id="c-anon-hint" hidden></p>
+      <p class="hint" id="c-pioneer" hidden></p>
       <div class="buttons">
         <button class="btn primary" id="c-post" type="submit">Post</button>
         <button class="btn ghost" id="c-cancel" type="button" hidden>Cancel</button>
@@ -263,6 +266,15 @@ footer { display: flex; justify-content: center; }
       </div>
     </div>
   </div>
+  <div class="overlay" id="tipBox" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="tipText">
+      <p id="tipText"></p>
+      <div class="buttons">
+        <button class="btn primary" id="tipYes" type="button"></button>
+        <button class="btn" id="tipNo" type="button"></button>
+      </div>
+    </div>
+  </div>
   <div id="toast" role="status" aria-live="polite"></div>
 </main>
 
@@ -310,7 +322,11 @@ const DEFAULTS = {
   askNo: "No",
   commentsHeading: "Leave a comment",
   commentLabel: "Your comment",
-  anonHint: "The host can still see who you are."
+  anonHint: "The host can still see who you are.",
+  tipText: "💡If you're not buying all the {n}, you can leave a comment down there with a link or model, so someone else can buy the rest",
+  tipYes: "I can do that!",
+  tipNo: "Nah",
+  followBtn: "Follow the pioneer!"
 };
 const OPTIONAL = { intro: true, credit: true };
 const TEXT_FIELDS = [
@@ -320,7 +336,8 @@ const TEXT_FIELDS = [
   ['closeBtn', 'Big stuff: close button', 'input'], ['amountLabel', 'Big stuff: question above the amount', 'input'],
   ['swishBtn', 'Swish button', 'input'], ['msgLabel', 'Big stuff: message label', 'input'],
   ['askTitle', 'After Swish: question', 'input'], ['askYes', 'After Swish: yes button', 'input'], ['askNo', 'After Swish: no button', 'input'],
-  ['commentsHeading', 'Comments: heading', 'input'], ['commentLabel', 'Comments: text above the box', 'input'], ['anonHint', 'Comments: note under the anonymous box', 'input']
+  ['commentsHeading', 'Comments: heading', 'input'], ['commentLabel', 'Comments: text above the box', 'input'], ['anonHint', 'Comments: note under the anonymous box', 'input'],
+  ['tipText', 'Multiple items: popup text ({n} = how many)', 'area'], ['tipYes', 'Multiple items: popup yes button', 'input'], ['tipNo', 'Multiple items: popup no button', 'input'], ['followBtn', 'Multiple items: follow button', 'input']
 ];
 let textOv = {};
 function T(key) {
@@ -392,7 +409,7 @@ const state = {
   items: [], claims: new Map(), chipins: [], comments: [], msgs: {}, pendingSwish: null, host: {}, myName: '',
   uid: null, authFailed: false, editingComment: null, confirmCommentDel: null, claimNames: new Map(), commentAuthors: new Map(),
   isHost: false, hostMode: false, editing: null, confirmDel: false, openBig: null, amounts: {},
-  pending: new Set(), itemsLoaded: false, slow: false, autoOpened: false
+  pending: new Set(), pioneerItem: null, tipItem: null, itemsLoaded: false, slow: false, autoOpened: false
 };
 try { state.myName = localStorage.getItem('hw-name') || ''; } catch (e) { /* no storage */ }
 
@@ -472,6 +489,44 @@ async function moveItem(item, dir) {
   } catch (err) { toast("Couldn't move that. Try again."); }
 }
 
+const tipTimers = {}, tipDeclined = new Set();
+function pioneerFor(item) {
+  return state.comments.filter((c) => c.item === item.id).sort((a, b) => (a.at || 0) - (b.at || 0))[0] || null;
+}
+function goToComment(id) {
+  const el = document.getElementById('cm-' + id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 2200);
+}
+function followBtn(item, covered) {
+  if (covered || qtyOf(item) < 2) return null;
+  const c = pioneerFor(item);
+  if (!c || isMine(c)) return null;
+  return h('button', { class: 'btn small', type: 'button', style: 'align-self:flex-start;margin-top:6px', onclick: () => goToComment(c.id) }, T('followBtn'));
+}
+function tipAfterToggle(item, added) {
+  clearTimeout(tipTimers[item.id]);
+  if (!added || state.isHost || qtyOf(item) < 2 || tipDeclined.has(item.id)) return;
+  tipTimers[item.id] = setTimeout(() => {
+    const it = state.items.find((x) => x.id === item.id) || item;
+    const q = qtyOf(it);
+    let have = 0, mine = false;
+    for (let n = 1; n <= q; n++) { const c = claimAt(it, n); if (c) { have++; if (isMine(c)) mine = true; } }
+    if (!mine || have >= q) return;
+    if (state.comments.some((c) => c.item === it.id && isMine(c))) return;
+    showTip(it);
+  }, 10000);
+}
+function showTip(item) {
+  state.tipItem = item.id;
+  $('#tipText').textContent = T('tipText').replace('{n}', qtyOf(item));
+  $('#tipYes').textContent = T('tipYes');
+  $('#tipNo').textContent = T('tipNo');
+  $('#tipBox').hidden = false;
+  $('#tipYes').focus();
+}
 function renderList() {
   const ul = $('#list'); ul.replaceChildren();
   const items = regularItems();
@@ -515,7 +570,7 @@ function renderList() {
     }
     ul.append(h('li', { class: 'row' + (covered ? ' covered' : '') },
       tile(it),
-      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', text: meta })),
+      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', text: meta }), followBtn(it, covered)),
       act, editLink(it)));
   });
 }
@@ -653,6 +708,7 @@ async function toggle(item, n) {
     const wasTaken = state.claims.has(key);
     await b.commit();
     notify(wasTaken ? '↩️ Someone un-ticked: ' + item.name : '🎁 Someone ticked off: ' + item.name);
+    tipAfterToggle(item, !wasTaken);
   } catch (err) {
     toast("Couldn't save that. Try again.");
   } finally { state.pending.delete(key); }
@@ -832,6 +888,8 @@ function renderCommentForm() {
   const nm = state.myName.trim();
   const hint = $('#c-anon-hint'); hint.hidden = !anon; hint.textContent = T('anonHint');
   $('#c-as').textContent = anon ? 'Shown as Anonymous.' : (nm ? 'Posting as ' + nm + '.' : 'Save your name at the top, or tick anonymous.');
+  const pi = state.pioneerItem && !state.editingComment ? state.items.find((x) => x.id === state.pioneerItem) : null;
+  const ph = $('#c-pioneer'); ph.hidden = !pi; ph.textContent = pi ? 'This comment will be linked to "' + pi.name + '".' : '';
   const editing = !!state.editingComment;
   $('#c-post').textContent = editing ? 'Save changes' : 'Post';
   $('#c-cancel').hidden = !editing;
@@ -849,7 +907,7 @@ function renderComments() {
     const act = h('div', { class: 'editbar' });
     if (mine) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => startEditComment(c) }, 'Edit'));
     if (mine || state.isHost) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => deleteComment(c) }, state.confirmCommentDel === c.id ? 'Tap again to delete' : 'Delete'));
-    ul.append(h('li', { class: 'comment' },
+    ul.append(h('li', { class: 'comment', id: 'cm-' + c.id },
       h('div', { class: 'chead' }, h('b', { text: who }), h('span', { class: 'meta', text: fmtTime(c.at) + (c.editedAt ? ' · edited' : '') })),
       h('p', { class: 'ctext', text: c.text }),
       act.childNodes.length ? act : null));
@@ -890,10 +948,13 @@ async function postComment(ev) {
       toast('Comment updated');
     } else {
       const ref = doc(collection(db, 'comments'));
-      b.set(ref, { text: text.slice(0, 500), name: anonymous ? '' : nm.slice(0, 40), anonymous, uid: state.uid, at: Date.now() });
+      const cdata = { text: text.slice(0, 500), name: anonymous ? '' : nm.slice(0, 40), anonymous, uid: state.uid, at: Date.now() };
+      if (state.pioneerItem) cdata.item = state.pioneerItem;
+      b.set(ref, cdata);
       if (anonymous && nm) b.set(doc(db, 'commentAuthors', ref.id), { name: nm.slice(0, 40), uid: state.uid });
       await b.commit();
       notify('💬 New comment on the page');
+      state.pioneerItem = null;
       toast('Comment posted');
     }
     $('#c-text').value = ''; $('#c-anon').checked = false;
@@ -915,6 +976,13 @@ async function deleteComment(c) {
     toast('Comment deleted');
   } catch (err) { toast("Couldn't delete that. Try again."); }
 }
+$('#tipYes').addEventListener('click', () => {
+  state.pioneerItem = state.tipItem; $('#tipBox').hidden = true;
+  renderCommentForm();
+  $('#commentForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('#c-text').focus({ preventScroll: true });
+});
+$('#tipNo').addEventListener('click', () => { if (state.tipItem) tipDeclined.add(state.tipItem); $('#tipBox').hidden = true; });
 $('#commentForm').addEventListener('submit', postComment);
 $('#c-anon').addEventListener('change', renderCommentForm);
 $('#c-cancel').addEventListener('click', cancelEditComment);
@@ -1023,7 +1091,7 @@ if (db) {
 
   onSnapshot(collection(db, 'comments'), (snap) => {
     state.comments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderComments();
+    renderComments(); renderList();
   }, () => { /* comments stay empty */ });
 
   onSnapshot(collection(db, 'chipins'), (snap) => {
