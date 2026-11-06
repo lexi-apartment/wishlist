@@ -573,7 +573,7 @@ function renderBig() {
       h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', 'data-chip': it.id, text: chipSummary(it) })),
       h('div', { class: 'act' }, h('button', {
         class: 'btn' + (open ? '' : ' primary'), type: 'button', 'aria-expanded': open ? 'true' : 'false',
-        onclick: () => { state.openBig = open ? null : it.id; renderBig(); }
+        onclick: () => { if (!open && !state.myName.trim()) { toast('Save your name at the top first.'); $('#myName').focus(); return; } state.openBig = open ? null : it.id; renderBig(); }
       }, open ? T('closeBtn') : T('chipBtn'))),
       editLink(it));
     const li = h('li', { class: 'row bigrow' }, head);
@@ -932,13 +932,14 @@ function armPending() {
 }
 async function answerYes() {
   const p = state.pendingSwish; if (!p || !db) return;
+  if (!state.myName.trim()) { $('#askBox').hidden = true; toast('Save your name at the top first.'); $('#myName').focus(); return; }
   const btn = $('#askYes'); btn.disabled = true;
   try {
     const b = writeBatch(db);
     const ref = doc(collection(db, 'chipins'));
     const at = Date.now();
     b.set(ref, { item: p.item, at });
-    b.set(doc(db, 'chipinDetails', ref.id), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at });
+    b.set(doc(db, 'chipinDetails', ref.id), { item: p.item, itemName: String(p.itemName || '').slice(0, 80), name: state.myName.trim().slice(0, 40), amount: p.amount, at });
     await b.commit();
     savePending(null); $('#askBox').hidden = true; state.openBig = null; renderBig();
     toast('Thank you! 💛');
@@ -947,7 +948,6 @@ async function answerYes() {
 }
 function answerNo() {
   savePending(null); $('#askBox').hidden = true;
-  toast('No worries, you can try again anytime.');
 }
 $('#askYes').addEventListener('click', answerYes);
 $('#askNo').addEventListener('click', answerNo);
