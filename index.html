@@ -105,6 +105,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .pip.taken { background: var(--moss); border-color: var(--moss); }
 .pip.mine { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .edit-link { grid-column: 2 / -1; justify-self: start; }
+.editbar { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .big {
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
@@ -243,7 +244,7 @@ footer { display: flex; justify-content: center; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, addDoc, writeBatch, query, orderBy } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { firebaseConfig, HOST_EMAIL } from "./firebase-config.js";
 
@@ -408,7 +409,25 @@ function tile(item) {
 
 function editLink(item) {
   if (!(state.isHost && state.hostMode)) return null;
-  return h('button', { class: 'btn small ghost edit-link', type: 'button', onclick: () => startEdit(item) }, 'Edit');
+  const list = item.big ? bigItems() : regularItems();
+  const i = list.findIndex((x) => x.id === item.id);
+  return h('div', { class: 'edit-link editbar' },
+    h('button', { class: 'btn small ghost', type: 'button', disabled: i <= 0, 'aria-label': 'Move up', onclick: () => moveItem(item, -1) }, '↑ Up'),
+    h('button', { class: 'btn small ghost', type: 'button', disabled: i < 0 || i >= list.length - 1, 'aria-label': 'Move down', onclick: () => moveItem(item, 1) }, '↓ Down'),
+    h('button', { class: 'btn small ghost', type: 'button', onclick: () => startEdit(item) }, 'Edit'));
+}
+async function moveItem(item, dir) {
+  if (!db || !state.isHost) return;
+  const list = item.big ? bigItems() : regularItems();
+  const i = list.findIndex((x) => x.id === item.id), j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const other = list[j];
+  try {
+    const b = writeBatch(db);
+    b.set(doc(db, 'items', item.id), { createdAt: other.createdAt }, { merge: true });
+    b.set(doc(db, 'items', other.id), { createdAt: item.createdAt }, { merge: true });
+    await b.commit();
+  } catch (err) { toast("Couldn't move that. Try again."); }
 }
 
 function renderList() {
