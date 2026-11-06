@@ -55,7 +55,9 @@ p { margin: 0; }
 .lede.credit { color: var(--muted); font-size: 0.88rem; }
 .sechead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .top { display: flex; flex-direction: column; gap: 14px; }
-.namebar { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+.namebar { display: flex; flex-direction: column; gap: 6px; max-width: 380px; }
+.namerow { display: flex; gap: 8px; }
+.namerow input { flex: 1 1 auto; }
 .progress { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
 .progress .label { display: flex; justify-content: space-between; gap: 12px; font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .progress .label b { color: var(--ink); font-weight: 600; }
@@ -137,6 +139,9 @@ input[type="text"], input[type="number"], input[type="tel"], textarea, select, i
 .tools .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .tools .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .tools hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 16px; z-index: 30; }
+.dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px; max-width: 380px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.dialog .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 footer { display: flex; justify-content: center; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
@@ -160,10 +165,14 @@ footer { display: flex; justify-content: center; }
     <h1 id="pageTitle">Welcome to Alexis' new apartment</h1>
     <p class="lede" id="introText"></p>
     <p class="lede credit" id="creditText"></p>
-    <div class="namebar">
+    <form class="namebar" id="nameForm" autocomplete="off">
       <label class="lbl" for="myName">Your name</label>
-      <input type="text" id="myName" maxlength="40" placeholder="So we know who bought what" autocomplete="given-name">
-    </div>
+      <div class="namerow">
+        <input type="text" id="myName" maxlength="40" placeholder="Your name">
+        <button class="btn" id="saveName" type="submit">Save</button>
+      </div>
+      <p class="hint" id="nameHint"></p>
+    </form>
     <div class="progress" id="progress"></div>
     <div class="notice" id="notice"></div>
     <div><button class="btn small" id="toolsBtn" type="button" hidden>Host tools</button></div>
@@ -219,6 +228,16 @@ footer { display: flex; justify-content: center; }
   </section>
 
   <footer><button class="btn small ghost" id="loginBtn" type="button">Host login</button></footer>
+  <div class="overlay" id="askBox" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+      <h2 id="askTitle"></h2>
+      <p class="hint" id="askDetail"></p>
+      <div class="buttons">
+        <button class="btn primary" id="askYes" type="button"></button>
+        <button class="btn" id="askNo" type="button"></button>
+      </div>
+    </div>
+  </div>
   <div id="toast" role="status" aria-live="polite"></div>
 </main>
 
@@ -249,17 +268,21 @@ function h(tag, props, ...kids) {
 /* ---------- editable text ---------- */
 const DEFAULTS = {
   title: "Welcome to Alexis' new apartment",
-  intro: "Hi! Thanks for clicking this link. I know it sounds much but I did not want to end up with six toasters 💀 I also need to buy literally everything a human needs to live... except moomin mugs... Currently I do not have any chairs or couch for any of you to sit during the housewarming party. I promise I'm working on it 😭 Anyways your contribution will be greatly appreciated! See you soon!",
-  credit: "The code was written by Claude but this text was written by me 100%.",
+  intro: "Hi! Thanks for clicking this link. I know it looks much, but I did not want to end up with six toasters 💀 I also need to buy literally everything a human needs to live... except moomin mugs... (Not that I'm not open to getting more 👀)\nCurrently I do not have any chairs or couch for any of you to sit on during the housewarming party. I'm working on it 😭\nAnyways, your contribution will be greatly appreciated! See you soon!",
+  credit: "The code was written by Claude but the texts were written by me 100%.",
   smallHeading: "Small things by your discretion",
-  buyBtn: "I'll buy this",
+  buyBtn: "I got this 😎",
   boughtBtn: "✓ Bought, undo",
   bigHeading: "Chip in for big stuff",
-  bigIntro: "These are too much for one person. Tap an item, type how much you'd like to send, and Swish does the rest.",
+  bigIntro: "Tap an item, type how much you'd like to send, and Swish!",
   chipBtn: "Chip in",
   closeBtn: "Close",
   amountLabel: "How much do you want to send?",
-  swishBtn: "Open Swish"
+  swishBtn: "Open Swish",
+  msgLabel: "Message (you can change it)",
+  askTitle: "Did you swish?",
+  askYes: "Yes, I did",
+  askNo: "No"
 };
 const OPTIONAL = { intro: true, credit: true };
 const TEXT_FIELDS = [
@@ -267,7 +290,8 @@ const TEXT_FIELDS = [
   ['smallHeading', 'Small things: heading', 'input'], ['buyBtn', 'Small things: claim button', 'input'], ['boughtBtn', 'Small things: button after claiming', 'input'],
   ['bigHeading', 'Big stuff: heading', 'input'], ['bigIntro', 'Big stuff: description', 'area'], ['chipBtn', 'Big stuff: open button', 'input'],
   ['closeBtn', 'Big stuff: close button', 'input'], ['amountLabel', 'Big stuff: question above the amount', 'input'],
-  ['swishBtn', 'Swish button', 'input']
+  ['swishBtn', 'Swish button', 'input'], ['msgLabel', 'Big stuff: message label', 'input'],
+  ['askTitle', 'After Swish: question', 'input'], ['askYes', 'After Swish: yes button', 'input'], ['askNo', 'After Swish: no button', 'input']
 ];
 let textOv = {};
 function T(key) {
@@ -325,7 +349,7 @@ if (configured) {
 }
 
 const state = {
-  items: [], claims: new Map(), host: {}, myName: '',
+  items: [], claims: new Map(), chipins: [], msgs: {}, pendingSwish: null, host: {}, myName: '',
   isHost: false, hostMode: false, editing: null, confirmDel: false, openBig: null, amounts: {},
   pending: new Set(), itemsLoaded: false, slow: false, autoOpened: false
 };
@@ -403,10 +427,10 @@ function renderList() {
     for (let n = 1; n <= q; n++) { const c = claimAt(it, n); if (c) taken.push(c); }
     const who = {};
     taken.forEach((c) => { const nm = c.byName || 'Someone'; who[nm] = (who[nm] || 0) + 1; });
-    const whoText = Object.keys(who).map((nm) => nm + (who[nm] > 1 ? ' ×' + who[nm] : '')).join(', ');
+    const whoText = (state.isHost && state.hostMode) ? Object.keys(who).map((nm) => nm + (who[nm] > 1 ? ' ×' + who[nm] : '')).join(', ') : '';
     const covered = taken.length >= q;
     let meta;
-    if (q === 1) meta = taken.length ? 'Bought by ' + whoText : 'Still needed';
+    if (q === 1) meta = taken.length ? 'Bought' + (whoText ? ' by ' + whoText : '') : 'Still needed';
     else meta = 'Need ' + q + ', ' + taken.length + ' covered' + (whoText ? ' (' + whoText + ')' : '');
 
     const act = h('div', { class: 'act' });
@@ -419,8 +443,8 @@ function renderList() {
     } else {
       for (let k = 1; k <= q; k++) {
         const n = k, c = claimAt(it, n);
-        const label = c ? ((c.byName || 'Someone') + ' bought number ' + n + ' of ' + q + '. Tap to undo.') : ('Mark number ' + n + ' of ' + q + ' as bought');
-        const initial = c ? (String(c.byName || '').trim().charAt(0).toUpperCase() || '✓') : '';
+        const label = c ? ('Number ' + n + ' of ' + q + ' is bought. Tap to undo.') : ('Mark number ' + n + ' of ' + q + ' as bought');
+        const initial = c ? '✓' : '';
         act.append(h('button', {
           class: 'pip' + (c ? (isMine(c) ? ' mine' : ' taken') : ''), type: 'button',
           'aria-pressed': c ? 'true' : 'false', 'aria-label': label, title: label, onclick: () => toggle(it, n)
@@ -441,7 +465,7 @@ function normalizePhone(p) {
   return d;
 }
 function swishUrl(phone, amount, msg) {
-  const data = { version: 1, payee: { value: normalizePhone(phone) }, amount: { value: amount }, message: { value: msg.slice(0, 50) } };
+  const data = { version: 1, payee: { value: normalizePhone(phone) }, amount: { value: amount }, message: { value: msg.slice(0, 50), editable: true } };
   return 'swish://payment?data=' + encodeURIComponent(JSON.stringify(data));
 }
 function copyText(text, node) {
@@ -471,8 +495,16 @@ function fillReceipt(out, item) {
         h('button', { class: 'btn small', type: 'button', onclick: () => copyText(host.phone, numEl) }, 'Copy')),
       h('dt', { text: 'Amount' }), h('dd', { text: amt + ' kr' })),
     h('div', { style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px' },
-      h('a', { class: 'btn primary', href: swishUrl(host.phone, amt, 'Housewarming: ' + item.name), target: '_blank', rel: 'noopener noreferrer' }, T('swishBtn')))
+      h('a', { class: 'btn primary', href: swishUrl(host.phone, amt, msgFor(item)), target: '_blank', rel: 'noopener noreferrer', onclick: () => markPending(item, amt) }, T('swishBtn')))
   );
+}
+
+function chipSummary(item) {
+  const n = state.chipins.filter((c) => c.item === item.id).length;
+  return n === 0 ? 'Be the first to chip in' : (n === 1 ? '1 person chipped in' : n + ' people chipped in');
+}
+function msgFor(item) {
+  return typeof state.msgs[item.id] === 'string' ? state.msgs[item.id] : 'Housewarming: ' + item.name;
 }
 
 function renderBig() {
@@ -484,7 +516,7 @@ function renderBig() {
     const open = state.openBig === it.id;
     const head = h('div', { class: 'head' },
       tile(it),
-      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', text: open ? 'Choose an amount' : 'Chip in with any amount' })),
+      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', 'data-chip': it.id, text: chipSummary(it) })),
       h('div', { class: 'act' }, h('button', {
         class: 'btn' + (open ? '' : ' primary'), type: 'button', 'aria-expanded': open ? 'true' : 'false',
         onclick: () => { state.openBig = open ? null : it.id; renderBig(); }
@@ -498,10 +530,15 @@ function renderBig() {
         value: state.amounts[it.id] || ''
       });
       input.addEventListener('input', () => { state.amounts[it.id] = input.value; fillReceipt(out, it); });
+      const msgInput = h('input', { type: 'text', id: 'msg-' + it.id, maxlength: '50', value: msgFor(it) });
+      msgInput.addEventListener('input', () => { state.msgs[it.id] = msgInput.value; fillReceipt(out, it); });
       li.append(h('div', { class: 'pay' },
         h('div', { class: 'field' },
           h('label', { for: 'amt-' + it.id, text: T('amountLabel') }),
           h('div', { class: 'amountline' }, h('div', { class: 'inputwrap' }, input, h('span', { text: 'kr' })))),
+        h('div', { class: 'field' },
+          h('label', { for: 'msg-' + it.id, text: T('msgLabel') }),
+          msgInput),
         out));
       fillReceipt(out, it);
     }
@@ -534,7 +571,7 @@ function renderAll() { renderStatic(); renderHeader(); renderList(); renderBig()
 async function toggle(item, n) {
   if (!db) return;
   if (!state.myName.trim()) {
-    toast('Add your name at the top first.');
+    toast('Save your name at the top first.');
     $('#myName').focus();
     return;
   }
@@ -609,6 +646,7 @@ async function deleteItem() {
     for (let n = 1; n <= qtyOf(e); n++) {
       if (state.claims.has(e.id + '_' + n)) await deleteDoc(doc(db, 'claims', e.id + '_' + n));
     }
+    for (const c of state.chipins.filter((x) => x.item === e.id)) await deleteDoc(doc(db, 'chipins', c.id));
     await deleteDoc(doc(db, 'items', e.id));
     state.editing = null; state.confirmDel = false; renderTools();
   } catch (err) { toast("Couldn't delete that. Try again."); }
@@ -647,12 +685,25 @@ async function resetText() {
 }
 
 /* ---------- wiring ---------- */
+function renderNameBar() {
+  const typed = $('#myName').value.trim(), saved = state.myName.trim();
+  const same = !!saved && typed === saved;
+  const b = $('#saveName');
+  b.textContent = same ? 'Saved ✓' : 'Save';
+  b.disabled = same || !typed;
+  $('#nameHint').textContent = saved ? ('Saved on this device. Hi, ' + saved + '!') : 'Type your name and press Save, then you can tick things off.';
+}
 $('#myName').value = state.myName;
-$('#myName').addEventListener('input', (e) => {
-  state.myName = e.target.value;
-  try { localStorage.setItem('hw-name', state.myName); } catch (err) { /* no storage */ }
-  renderList();
+$('#myName').addEventListener('input', renderNameBar);
+$('#nameForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const v = $('#myName').value.trim().slice(0, 40);
+  if (!v) return;
+  state.myName = v;
+  try { localStorage.setItem('hw-name', v); } catch (err) { /* no storage */ }
+  renderNameBar(); renderList(); toast('Name saved');
 });
+renderNameBar();
 $('#toolsBtn').addEventListener('click', () => { state.hostMode = !state.hostMode; renderAll(); });
 $('#itemForm').addEventListener('submit', saveItem);
 $('#hostForm').addEventListener('submit', saveHost);
@@ -671,8 +722,58 @@ $('#loginBtn').addEventListener('click', async () => {
   } catch (err) { toast("Login didn't finish. Try again."); }
 });
 
+/* ---------- "Did you swish?" ---------- */
+const PENDING_KEY = 'hw-pending';
+function loadPending() {
+  try { const p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); if (p && Date.now() - p.t < 3600000) return p; } catch (e) { /* none */ }
+  return null;
+}
+function savePending(p) {
+  state.pendingSwish = p;
+  try { if (p) localStorage.setItem(PENDING_KEY, JSON.stringify(p)); else localStorage.removeItem(PENDING_KEY); } catch (e) { /* no storage */ }
+}
+function markPending(item, amt) { savePending({ item: item.id, itemName: item.name, amount: amt, armed: false, t: Date.now() }); }
+function showAsk() {
+  const p = state.pendingSwish; if (!p) return;
+  $('#askTitle').textContent = T('askTitle');
+  $('#askDetail').textContent = p.amount + ' kr for ' + p.itemName;
+  $('#askYes').textContent = T('askYes');
+  $('#askNo').textContent = T('askNo');
+  $('#askBox').hidden = false;
+  $('#askYes').focus();
+}
+function armPending() {
+  const p = state.pendingSwish;
+  if (p && !p.armed) savePending({ ...p, armed: true });
+}
+async function answerYes() {
+  const p = state.pendingSwish; if (!p || !db) return;
+  const btn = $('#askYes'); btn.disabled = true;
+  try {
+    await addDoc(collection(db, 'chipins'), { item: p.item, name: (state.myName.trim() || 'Someone').slice(0, 40), amount: p.amount, at: Date.now() });
+    savePending(null); $('#askBox').hidden = true; state.openBig = null; renderBig();
+    toast('Thank you! 💛');
+  } catch (err) { toast("Couldn't save that. Try again."); }
+  finally { btn.disabled = false; }
+}
+function answerNo() {
+  savePending(null); $('#askBox').hidden = true;
+  toast('No worries, you can try again anytime.');
+}
+$('#askYes').addEventListener('click', answerYes);
+$('#askNo').addEventListener('click', answerNo);
+document.addEventListener('visibilitychange', () => {
+  if (!state.pendingSwish) return;
+  if (document.visibilityState === 'hidden') armPending();
+  else if (state.pendingSwish.armed) showAsk();
+});
+window.addEventListener('pagehide', armPending);
+window.addEventListener('pageshow', () => { if (state.pendingSwish && state.pendingSwish.armed) showAsk(); });
+state.pendingSwish = loadPending();
+
 buildTextForm();
 renderAll();
+if (state.pendingSwish) { armPending(); showAsk(); }
 
 if (db) {
   const slowTimer = setTimeout(() => { state.slow = true; renderHeader(); }, 10000);
@@ -701,6 +802,14 @@ if (db) {
     state.claims = m;
     renderHeader(); renderList();
   }, () => { /* claims stay empty */ });
+
+  onSnapshot(collection(db, 'chipins'), (snap) => {
+    state.chipins = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    document.querySelectorAll('[data-chip]').forEach((el) => {
+      const it = state.items.find((i) => i.id === el.dataset.chip);
+      if (it) el.textContent = chipSummary(it);
+    });
+  }, () => { /* counts stay empty */ });
 
   onSnapshot(doc(db, 'config', 'host'), (s) => {
     state.host = s.exists() ? s.data() : {};
