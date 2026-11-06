@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Welcome to Alexis' new apartment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one narrow column like a printed list. Header, hairline rows, then a tinted "chip in" block for the big things. */
+:root {
+  color-scheme: light;
+  --bg: #EEF1EE;
+  --surface: #FBFCFB;
+  --ink: #18262B;
+  --muted: #586769;
+  --line: #D3DBD6;
+  --accent: #B3293C;
+  --accent-ink: #FFFFFF;
+  --moss: #3E6A4E;
+  --moss-ink: #FFFFFF;
+  --moss-soft: #DDEBE0;
+  --tile: #E1E8E3;
+  --focus: #1B5FAA;
+  --display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11191B; --surface: #172326; --ink: #E7EEEA; --muted: #9AABAB; --line: #2A393C;
+    --accent: #EE7387; --accent-ink: #2A0A10; --moss: #86C79B; --moss-ink: #0F2418;
+    --moss-soft: #1D3527; --tile: #213034; --focus: #7DB6F0;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(28px + env(safe-area-inset-top, 0px)) calc(64px + env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.3rem, 8vw, 3.6rem); line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
+h2 { font-size: 1.5rem; font-weight: 600; line-height: 1.15; }
+h3 { font-size: 1.05rem; font-weight: 600; line-height: 1.25; letter-spacing: 0; }
+p { margin: 0; }
+.lede { max-width: 60ch; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.lede.credit { color: var(--muted); font-size: 0.88rem; }
+.sechead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.top { display: flex; flex-direction: column; gap: 14px; }
+.namebar { display: flex; flex-direction: column; gap: 6px; max-width: 320px; }
+.progress { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+.progress .label { display: flex; justify-content: space-between; gap: 12px; font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress .label b { color: var(--ink); font-weight: 600; }
+.track { height: 8px; border-radius: 4px; background: var(--tile); overflow: hidden; }
+.fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .35s ease; }
+.notice { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 0.95rem; }
+.notice:empty { display: none; }
+
+.btn {
+  font: inherit; font-weight: 600; font-size: 0.95rem; min-height: 40px; padding: 0 16px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.mine { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.taken { background: var(--moss-soft); color: var(--ink); border-color: var(--moss); }
+.btn.small { min-height: 34px; padding: 0 12px; font-size: 0.85rem; }
+.btn.ghost { background: transparent; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.rows { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px 14px; align-items: center;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+.row:first-child { border-top: 1px solid var(--line); }
+.tile {
+  width: 56px; height: 56px; border-radius: 12px; background: var(--tile);
+  display: grid; place-items: center; font-size: 28px; overflow: hidden; flex: none;
+}
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.name { overflow-wrap: anywhere; }
+.meta { font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 250px; }
+.row.covered .tile, .row.covered .name { opacity: .55; }
+.row.covered .name { text-decoration: line-through; text-decoration-thickness: 1px; }
+.pip {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--muted); background: transparent;
+  color: var(--moss-ink); font: 600 0.8rem var(--body); cursor: pointer; display: grid; place-items: center; padding: 0;
+}
+.pip:hover { border-color: var(--ink); }
+.pip.taken { background: var(--moss); border-color: var(--moss); }
+.pip.mine { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.edit-link { grid-column: 2 / -1; justify-self: start; }
+
+.big {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 20px 18px 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.big > p { color: var(--muted); max-width: 54ch; margin-bottom: 8px; }
+.big .row:first-child { border-top: 1px solid var(--line); }
+.big .row:last-child { border-bottom: 0; }
+.bigrow { display: block; padding: 0; }
+.bigrow .head { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 14px 0; }
+.pay { padding: 4px 0 18px; display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field label, .lbl { font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+textarea { resize: vertical; line-height: 1.45; }
+input[type="text"], input[type="number"], input[type="tel"], textarea, select, input[type="file"] {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; min-height: 44px; padding: 8px 12px; width: 100%; min-width: 0;
+}
+.amountline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.amountline .inputwrap { position: relative; width: 150px; }
+.amountline .inputwrap span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.amountline input { padding-right: 40px; font-variant-numeric: tabular-nums; }
+.receipt { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; align-items: center; margin: 0; }
+.receipt dt { color: var(--muted); font-size: 0.85rem; }
+.receipt dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.receipt .num { font-family: var(--display); font-size: 1.2rem; user-select: all; font-variant-numeric: tabular-nums; }
+.hint { font-size: 0.85rem; color: var(--muted); }
+.empty { padding: 28px 0; color: var(--muted); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+.tools { border: 1px dashed var(--muted); border-radius: 16px; padding: 20px 18px; display: flex; flex-direction: column; gap: 22px; }
+.tools form { display: flex; flex-direction: column; gap: 14px; }
+.tools .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tools .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.tools hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+footer { display: flex; justify-content: center; }
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.92rem;
+  max-width: calc(100% - 32px); z-index: 20;
+}
+#toast:empty { display: none; }
+@media (max-width: 520px) {
+  .row { grid-template-columns: 56px minmax(0, 1fr); }
+  .row .act { grid-column: 2; justify-content: flex-start; max-width: none; }
+  .bigrow .head { grid-template-columns: 56px minmax(0, 1fr); }
+  .bigrow .head .act { grid-column: 2; justify-content: flex-start; max-width: none; }
+  .big { padding-inline: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1 id="pageTitle">Welcome to Alexis' new apartment</h1>
+    <p class="lede" id="introText"></p>
+    <p class="lede credit" id="creditText"></p>
+    <div class="namebar">
+      <label class="lbl" for="myName">Your name</label>
+      <input type="text" id="myName" maxlength="40" placeholder="So we know who bought what" autocomplete="given-name">
+    </div>
+    <div class="progress" id="progress"></div>
+    <div class="notice" id="notice"></div>
+    <div><button class="btn small" id="toolsBtn" type="button" hidden>Host tools</button></div>
+  </header>
+
+  <section aria-labelledby="h-list" style="display:flex;flex-direction:column;gap:14px">
+    <div class="sechead"><h2 id="h-list">Small things by your discretion</h2><button class="btn small" id="addSmall" type="button" hidden>+ Add small item</button></div>
+    <ul class="rows" id="list"></ul>
+  </section>
+
+  <section class="big" id="bigSec" aria-labelledby="h-big" hidden>
+    <div class="sechead"><h2 id="h-big">Chip in for big stuff</h2><button class="btn small" id="addBig" type="button" hidden>+ Add big item</button></div>
+    <p id="bigIntro"></p>
+    <ul class="rows" id="bigList"></ul>
+  </section>
+
+  <section class="tools" id="tools" aria-labelledby="h-tools" hidden>
+    <h2 id="h-tools">Host tools</h2>
+    <form id="itemForm" autocomplete="off">
+      <h3 id="itemFormTitle">Add an item</h3>
+      <div class="grid">
+        <div class="field"><label for="f-name">Item</label><input type="text" id="f-name" placeholder="Saucepan" maxlength="80"></div>
+        <div class="field"><label for="f-qty">How many</label><input type="number" id="f-qty" min="1" max="24" value="1" inputmode="numeric"></div>
+        <div class="field"><label for="f-kind">Type</label>
+          <select id="f-kind"><option value="regular">Small things by your discretion</option><option value="big">Chip in for big stuff</option></select>
+        </div>
+      </div>
+      <div class="field"><label for="f-photo">Photo (optional, otherwise a picture is picked from the name)</label><input type="file" id="f-photo" accept="image/*"></div>
+      <div class="buttons">
+        <button class="btn primary" type="submit" id="itemSave">Add to list</button>
+        <button class="btn ghost" type="button" id="itemCancel" hidden>Cancel</button>
+        <button class="btn ghost" type="button" id="itemDelete" hidden>Delete item</button>
+      </div>
+    </form>
+    <hr>
+    <form id="hostForm" autocomplete="off">
+      <h3>Where the money goes</h3>
+      <div class="grid">
+        <div class="field"><label for="h-phone">Your Swish number</label><input type="tel" id="h-phone" placeholder="070 123 45 67" maxlength="24"></div>
+      </div>
+      <div class="buttons"><button class="btn primary" type="submit">Save details</button></div>
+    </form>
+    <hr>
+    <form id="textForm" autocomplete="off">
+      <h3>Page text</h3>
+      <p class="hint">Change any wording on the page. Clear the intro or the small line under it to hide them.</p>
+      <div id="textFields" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div class="buttons">
+        <button class="btn primary" type="submit">Save text</button>
+        <button class="btn ghost" type="button" id="textReset">Reset all text</button>
+      </div>
+    </form>
+  </section>
+
+  <footer><button class="btn small ghost" id="loginBtn" type="button">Host login</button></footer>
+  <div id="toast" role="status" aria-live="polite"></div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { firebaseConfig, HOST_EMAIL } from "./firebase-config.js";
+
+const $ = (s) => document.querySelector(s);
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const k in (props || {})) {
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+/* ---------- editable text ---------- */
+const DEFAULTS = {
+  title: "Welcome to Alexis' new apartment",
+  intro: "Hi! Thanks for clicking this link. I know it sounds much but I did not want to end up with six toasters 💀 I also need to buy literally everything a human needs to live... except moomin mugs... Currently I do not have any chairs or couch for any of you to sit during the housewarming party. I promise I'm working on it 😭 Anyways your contribution will be greatly appreciated! See you soon!",
+  credit: "The code was written by Claude but this text was written by me 100%.",
+  smallHeading: "Small things by your discretion",
+  buyBtn: "I'll buy this",
+  boughtBtn: "✓ Bought, undo",
+  bigHeading: "Chip in for big stuff",
+  bigIntro: "These are too much for one person. Tap an item, type how much you'd like to send, and Swish does the rest.",
+  chipBtn: "Chip in",
+  closeBtn: "Close",
+  amountLabel: "How much do you want to send?",
+  swishBtn: "Open Swish"
+};
+const OPTIONAL = { intro: true, credit: true };
+const TEXT_FIELDS = [
+  ['title', 'Page title', 'input'], ['intro', 'Intro text', 'area'], ['credit', 'Small line under the intro', 'input'],
+  ['smallHeading', 'Small things: heading', 'input'], ['buyBtn', 'Small things: claim button', 'input'], ['boughtBtn', 'Small things: button after claiming', 'input'],
+  ['bigHeading', 'Big stuff: heading', 'input'], ['bigIntro', 'Big stuff: description', 'area'], ['chipBtn', 'Big stuff: open button', 'input'],
+  ['closeBtn', 'Big stuff: close button', 'input'], ['amountLabel', 'Big stuff: question above the amount', 'input'],
+  ['swishBtn', 'Swish button', 'input']
+];
+let textOv = {};
+function T(key) {
+  const v = textOv[key];
+  if (typeof v === 'string') { if (v.trim()) return v; if (OPTIONAL[key]) return ''; }
+  return DEFAULTS[key];
+}
+function renderStatic() {
+  const t = T('title');
+  $('#pageTitle').textContent = t; document.title = t;
+  const intro = $('#introText'); intro.textContent = T('intro'); intro.hidden = !T('intro');
+  const credit = $('#creditText'); credit.textContent = T('credit'); credit.hidden = !T('credit');
+  $('#h-list').textContent = T('smallHeading');
+  $('#h-big').textContent = T('bigHeading');
+  $('#bigIntro').textContent = T('bigIntro');
+}
+function buildTextForm() {
+  const box = $('#textFields');
+  TEXT_FIELDS.forEach((f) => {
+    const id = 't-' + f[0];
+    const ctl = f[2] === 'area' ? h('textarea', { id, rows: f[0] === 'intro' ? '7' : '3', maxlength: '1200' }) : h('input', { type: 'text', id, maxlength: '200' });
+    box.append(h('div', { class: 'field' }, h('label', { for: id, text: f[1] }), ctl));
+  });
+}
+function fillTextForm() { TEXT_FIELDS.forEach((f) => { $('#t-' + f[0]).value = T(f[0]); }); }
+
+/* ---------- pictures from item names ---------- */
+const ICONS = [
+  [/\b(pots?|saucepans?|casseroles?)\b/i, '🍲'], [/\b(pans?|skillets?|woks?)\b/i, '🍳'],
+  [/\b(glass|glasses|wine|champagne)\b/i, '🥂'], [/\b(plates?|dishes|dinnerware)\b/i, '🍽️'],
+  [/\bbowls?\b/i, '🥣'], [/\b(cutlery|forks?|spoons?|silverware)\b/i, '🍴'],
+  [/\b(knife|knives|cutting board)\b/i, '🔪'], [/\b(mugs?|cups?|coffee|espresso|kettle)\b/i, '☕'],
+  [/\btoaster\b/i, '🍞'], [/\b(blender|mixer)\b/i, '🥤'], [/\b(towels?)\b/i, '🛁'],
+  [/\b(lamps?|lights?|lighting)\b/i, '💡'], [/\b(plants?|pot plant)\b/i, '🪴'],
+  [/\b(vase|vases)\b/i, '🏺'], [/\b(candles?|candlesticks?)\b/i, '🕯️'],
+  [/\b(rug|carpet)\b/i, '🧶'], [/\b(pillows?|cushions?|sofa|couch)\b/i, '🛋️'],
+  [/\b(blanket|duvet|bed|bedding|sheets?)\b/i, '🛏️'], [/\bmirror\b/i, '🪞'],
+  [/\b(frames?|pictures?|posters?|art)\b/i, '🖼️'], [/\b(shelf|shelves|bookcase|books?)\b/i, '📚'],
+  [/\b(chairs?|stools?|table|desk)\b/i, '🪑'], [/\b(tv|television)\b/i, '📺'],
+  [/\b(speakers?|sound)\b/i, '🔊'], [/\b(vacuum|mop|broom)\b/i, '🧹'],
+  [/\b(basket|storage|box|boxes)\b/i, '🧺'], [/\b(tools?|drill|hammer)\b/i, '🔧']
+];
+function iconFor(name) {
+  for (const [re, emoji] of ICONS) if (re.test(name)) return emoji;
+  return '🎁';
+}
+
+/* ---------- firebase ---------- */
+const configured = !!(firebaseConfig && firebaseConfig.apiKey && !String(firebaseConfig.apiKey).startsWith('YOUR_'));
+let db = null, auth = null;
+if (configured) {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+}
+
+const state = {
+  items: [], claims: new Map(), host: {}, myName: '',
+  isHost: false, hostMode: false, editing: null, confirmDel: false, openBig: null, amounts: {},
+  pending: new Set(), itemsLoaded: false, slow: false, autoOpened: false
+};
+try { state.myName = localStorage.getItem('hw-name') || ''; } catch (e) { /* no storage */ }
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.textContent = ''; }, 3500);
+}
+
+const regularItems = () => state.items.filter((i) => !i.big);
+const bigItems = () => state.items.filter((i) => i.big);
+const qtyOf = (i) => Math.max(1, Math.min(24, parseInt(i.qty, 10) || 1));
+const claimAt = (item, n) => state.claims.get(item.id + '_' + n) || null;
+const isMine = (c) => !!c && !!state.myName.trim() && String(c.byName || '').trim().toLowerCase() === state.myName.trim().toLowerCase();
+
+/* ---------- rendering ---------- */
+function renderHeader() {
+  let units = 0, done = 0;
+  regularItems().forEach((it) => {
+    const q = qtyOf(it); units += q;
+    for (let n = 1; n <= q; n++) if (claimAt(it, n)) done++;
+  });
+  const pr = $('#progress'); pr.replaceChildren();
+  if (units > 0) {
+    const pct = Math.round((done / units) * 100);
+    pr.append(
+      h('div', { class: 'label' }, h('span', null, h('b', { text: done }), ' of ' + units + ' things covered'), h('span', { text: pct + '%' })),
+      h('div', { class: 'track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(units), 'aria-valuenow': String(done), 'aria-label': 'Items covered' },
+        h('div', { class: 'fill', style: 'width:' + pct + '%' }))
+    );
+  }
+  let msg = '';
+  if (!db) msg = 'This page is not connected to its database yet. The host still has to finish the setup.';
+  else if (state.slow && !state.itemsLoaded) msg = 'Still trying to reach the list. It may be out of date.';
+  $('#notice').textContent = msg;
+  const tb = $('#toolsBtn');
+  tb.hidden = !state.isHost;
+  tb.textContent = state.hostMode ? 'Close host tools' : 'Host tools';
+  const hm = state.isHost && state.hostMode;
+  $('#addSmall').hidden = !hm;
+  $('#addBig').hidden = !hm;
+}
+
+function tile(item) {
+  const t = h('div', { class: 'tile', 'aria-hidden': 'true' });
+  const emoji = iconFor(item.name || '');
+  if (typeof item.photo === 'string' && item.photo.startsWith('data:image/jpeg;base64,')) {
+    const img = h('img', { src: item.photo, alt: '', loading: 'lazy' });
+    img.addEventListener('error', () => { t.replaceChildren(document.createTextNode(emoji)); });
+    t.append(img);
+  } else t.append(emoji);
+  return t;
+}
+
+function editLink(item) {
+  if (!(state.isHost && state.hostMode)) return null;
+  return h('button', { class: 'btn small ghost edit-link', type: 'button', onclick: () => startEdit(item) }, 'Edit');
+}
+
+function renderList() {
+  const ul = $('#list'); ul.replaceChildren();
+  const items = regularItems();
+  if (!items.length) {
+    let msg;
+    if (!db) msg = 'The list will show up here.';
+    else if (!state.itemsLoaded) msg = 'Loading the list…';
+    else msg = state.isHost ? 'Nothing here yet. Open Host tools and add your first item.' : 'Nothing on the list yet. Check back soon.';
+    ul.append(h('li', { class: 'empty', text: msg }));
+    return;
+  }
+  items.forEach((it) => {
+    const q = qtyOf(it), taken = [];
+    for (let n = 1; n <= q; n++) { const c = claimAt(it, n); if (c) taken.push(c); }
+    const who = {};
+    taken.forEach((c) => { const nm = c.byName || 'Someone'; who[nm] = (who[nm] || 0) + 1; });
+    const whoText = Object.keys(who).map((nm) => nm + (who[nm] > 1 ? ' ×' + who[nm] : '')).join(', ');
+    const covered = taken.length >= q;
+    let meta;
+    if (q === 1) meta = taken.length ? 'Bought by ' + whoText : 'Still needed';
+    else meta = 'Need ' + q + ', ' + taken.length + ' covered' + (whoText ? ' (' + whoText + ')' : '');
+
+    const act = h('div', { class: 'act' });
+    if (q === 1) {
+      const c1 = claimAt(it, 1);
+      act.append(h('button', {
+        class: 'btn ' + (c1 ? (isMine(c1) ? 'mine' : 'taken') : ''), type: 'button',
+        'aria-pressed': c1 ? 'true' : 'false', onclick: () => toggle(it, 1)
+      }, c1 ? T('boughtBtn') : T('buyBtn')));
+    } else {
+      for (let k = 1; k <= q; k++) {
+        const n = k, c = claimAt(it, n);
+        const label = c ? ((c.byName || 'Someone') + ' bought number ' + n + ' of ' + q + '. Tap to undo.') : ('Mark number ' + n + ' of ' + q + ' as bought');
+        const initial = c ? (String(c.byName || '').trim().charAt(0).toUpperCase() || '✓') : '';
+        act.append(h('button', {
+          class: 'pip' + (c ? (isMine(c) ? ' mine' : ' taken') : ''), type: 'button',
+          'aria-pressed': c ? 'true' : 'false', 'aria-label': label, title: label, onclick: () => toggle(it, n)
+        }, initial));
+      }
+    }
+    ul.append(h('li', { class: 'row' + (covered ? ' covered' : '') },
+      tile(it),
+      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', text: meta })),
+      act, editLink(it)));
+  });
+}
+
+function normalizePhone(p) {
+  let d = String(p || '').replace(/\D/g, '');
+  if (d.indexOf('00') === 0) d = d.slice(2);
+  else if (d.charAt(0) === '0') d = '46' + d.slice(1);
+  return d;
+}
+function swishUrl(phone, amount, msg) {
+  const data = { version: 1, payee: { value: normalizePhone(phone) }, amount: { value: amount }, message: { value: msg.slice(0, 50) } };
+  return 'swish://payment?data=' + encodeURIComponent(JSON.stringify(data));
+}
+function copyText(text, node) {
+  const fallback = () => {
+    try {
+      const r = document.createRange(); r.selectNodeContents(node);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    } catch (e) { /* nothing to select */ }
+    toast('Select the number and copy it by hand');
+  };
+  try { navigator.clipboard.writeText(text).then(() => toast('Copied'), fallback); } catch (e) { fallback(); }
+}
+
+function fillReceipt(out, item) {
+  out.replaceChildren();
+  const amt = parseInt(state.amounts[item.id] || '', 10);
+  if (!(amt > 0)) return;
+  const host = state.host || {};
+  if (!host.phone) {
+    out.append(h('p', { class: 'hint', text: "The host hasn't added a Swish number yet. Check back soon." }));
+    return;
+  }
+  const numEl = h('span', { class: 'num', text: host.phone });
+  out.append(
+    h('dl', { class: 'receipt' },
+      h('dt', { text: 'Number' }), h('dd', null, numEl,
+        h('button', { class: 'btn small', type: 'button', onclick: () => copyText(host.phone, numEl) }, 'Copy')),
+      h('dt', { text: 'Amount' }), h('dd', { text: amt + ' kr' })),
+    h('div', { style: 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px' },
+      h('a', { class: 'btn primary', href: swishUrl(host.phone, amt, 'Housewarming: ' + item.name), target: '_blank', rel: 'noopener noreferrer' }, T('swishBtn')))
+  );
+}
+
+function renderBig() {
+  const items = bigItems();
+  $('#bigSec').hidden = !items.length && !(state.isHost && state.hostMode);
+  const ul = $('#bigList'); ul.replaceChildren();
+  if (!items.length) ul.append(h('li', { class: 'empty', text: 'Nothing here yet. Use + Add big item.' }));
+  items.forEach((it) => {
+    const open = state.openBig === it.id;
+    const head = h('div', { class: 'head' },
+      tile(it),
+      h('div', { class: 'body' }, h('h3', { class: 'name', text: it.name }), h('p', { class: 'meta', text: open ? 'Choose an amount' : 'Chip in with any amount' })),
+      h('div', { class: 'act' }, h('button', {
+        class: 'btn' + (open ? '' : ' primary'), type: 'button', 'aria-expanded': open ? 'true' : 'false',
+        onclick: () => { state.openBig = open ? null : it.id; renderBig(); }
+      }, open ? T('closeBtn') : T('chipBtn'))),
+      editLink(it));
+    const li = h('li', { class: 'row bigrow' }, head);
+    if (open) {
+      const out = h('div', { 'aria-live': 'polite' });
+      const input = h('input', {
+        type: 'number', id: 'amt-' + it.id, min: '1', max: '100000', step: '1', inputmode: 'numeric',
+        value: state.amounts[it.id] || ''
+      });
+      input.addEventListener('input', () => { state.amounts[it.id] = input.value; fillReceipt(out, it); });
+      li.append(h('div', { class: 'pay' },
+        h('div', { class: 'field' },
+          h('label', { for: 'amt-' + it.id, text: T('amountLabel') }),
+          h('div', { class: 'amountline' }, h('div', { class: 'inputwrap' }, input, h('span', { text: 'kr' })))),
+        out));
+      fillReceipt(out, it);
+    }
+    ul.append(li);
+  });
+}
+
+function renderTools() {
+  const show = state.isHost && state.hostMode;
+  $('#tools').hidden = !show;
+  if (!show) return;
+  const e = state.editing;
+  $('#itemFormTitle').textContent = e ? 'Edit item' : 'Add an item';
+  $('#f-name').value = e ? e.name : '';
+  $('#f-qty').value = e ? qtyOf(e) : 1;
+  $('#f-kind').value = e && e.big ? 'big' : 'regular';
+  $('#f-qty').disabled = $('#f-kind').value === 'big';
+  $('#f-photo').value = '';
+  $('#itemSave').textContent = e ? 'Save changes' : 'Add to list';
+  $('#itemCancel').hidden = !e;
+  $('#itemDelete').hidden = !e;
+  $('#itemDelete').textContent = state.confirmDel ? 'Tap again to delete' : 'Delete item';
+  $('#h-phone').value = state.host.phone || '';
+  fillTextForm();
+}
+
+function renderAll() { renderStatic(); renderHeader(); renderList(); renderBig(); renderTools(); }
+
+/* ---------- actions ---------- */
+async function toggle(item, n) {
+  if (!db) return;
+  if (!state.myName.trim()) {
+    toast('Add your name at the top first.');
+    $('#myName').focus();
+    return;
+  }
+  const key = item.id + '_' + n;
+  if (state.pending.has(key)) return;
+  state.pending.add(key);
+  try {
+    const ref = doc(db, 'claims', key);
+    if (state.claims.has(key)) await deleteDoc(ref);
+    else await setDoc(ref, { item: item.id, n, byName: state.myName.trim().slice(0, 40), at: Date.now() });
+  } catch (err) {
+    toast("Couldn't save that. Try again.");
+  } finally { state.pending.delete(key); }
+}
+
+function startEdit(item) {
+  state.editing = item; state.confirmDel = false; state.hostMode = true;
+  renderHeader(); renderTools(); renderList(); renderBig();
+  $('#tools').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function startAdd(kind) {
+  state.editing = null; state.confirmDel = false; state.hostMode = true;
+  renderTools();
+  $('#f-kind').value = kind; $('#f-qty').disabled = kind === 'big';
+  $('#tools').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#f-name').focus();
+}
+
+async function shrinkToDataUrl(file) {
+  const bmp = await createImageBitmap(file);
+  for (const [max, q] of [[480, 0.72], [360, 0.6], [260, 0.5]]) {
+    const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * s)); c.height = Math.max(1, Math.round(bmp.height * s));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/jpeg', q);
+    if (url.length < 150000) return url;
+  }
+  return null;
+}
+
+async function saveItem(ev) {
+  ev.preventDefault();
+  if (!db || !state.isHost) return;
+  const name = $('#f-name').value.trim();
+  if (!name) { toast('Give the item a name first.'); return; }
+  const big = $('#f-kind').value === 'big';
+  const qty = big ? 1 : Math.max(1, Math.min(24, parseInt($('#f-qty').value, 10) || 1));
+  const btn = $('#itemSave'); btn.disabled = true;
+  try {
+    let photo = (state.editing && state.editing.photo) || null;
+    const file = $('#f-photo').files[0];
+    if (file) {
+      const url = await shrinkToDataUrl(file).catch(() => null);
+      if (url) photo = url; else toast("That photo couldn't be used. The item was saved without a new photo.");
+    }
+    const data = { name, qty, big, photo, createdAt: state.editing ? (state.editing.createdAt || Date.now()) : Date.now() };
+    if (state.editing) await setDoc(doc(db, 'items', state.editing.id), data);
+    else await addDoc(collection(db, 'items'), data);
+    state.editing = null; state.confirmDel = false;
+    renderTools();
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't save the item (" + (err && err.code ? err.code : 'unknown error') + ").");
+  } finally { btn.disabled = false; }
+}
+
+async function deleteItem() {
+  const e = state.editing; if (!e || !db || !state.isHost) return;
+  if (!state.confirmDel) { state.confirmDel = true; renderTools(); return; }
+  try {
+    for (let n = 1; n <= qtyOf(e); n++) {
+      if (state.claims.has(e.id + '_' + n)) await deleteDoc(doc(db, 'claims', e.id + '_' + n));
+    }
+    await deleteDoc(doc(db, 'items', e.id));
+    state.editing = null; state.confirmDel = false; renderTools();
+  } catch (err) { toast("Couldn't delete that. Try again."); }
+}
+
+async function saveHost(ev) {
+  ev.preventDefault();
+  if (!db || !state.isHost) return;
+  try {
+    await setDoc(doc(db, 'config', 'host'), { phone: $('#h-phone').value.trim() });
+    toast('Saved');
+  } catch (err) { toast("Couldn't save your details. Try again."); }
+}
+
+async function saveText(ev) {
+  ev.preventDefault();
+  if (!db || !state.isHost) return;
+  const data = {};
+  TEXT_FIELDS.forEach((f) => {
+    const val = $('#t-' + f[0]).value;
+    if (!val.trim()) { if (OPTIONAL[f[0]]) data[f[0]] = ''; return; }
+    if (val !== DEFAULTS[f[0]]) data[f[0]] = val;
+  });
+  try { await setDoc(doc(db, 'config', 'text'), data); toast('Text saved'); }
+  catch (err) { toast("Couldn't save the text. Try again."); }
+}
+
+let resetArmed = false;
+async function resetText() {
+  const btn = $('#textReset');
+  if (!db || !state.isHost) return;
+  if (!resetArmed) { resetArmed = true; btn.textContent = 'Tap again to reset all text'; return; }
+  resetArmed = false; btn.textContent = 'Reset all text';
+  try { await deleteDoc(doc(db, 'config', 'text')); toast('Text reset'); }
+  catch (err) { toast("Couldn't reset the text. Try again."); }
+}
+
+/* ---------- wiring ---------- */
+$('#myName').value = state.myName;
+$('#myName').addEventListener('input', (e) => {
+  state.myName = e.target.value;
+  try { localStorage.setItem('hw-name', state.myName); } catch (err) { /* no storage */ }
+  renderList();
+});
+$('#toolsBtn').addEventListener('click', () => { state.hostMode = !state.hostMode; renderAll(); });
+$('#itemForm').addEventListener('submit', saveItem);
+$('#hostForm').addEventListener('submit', saveHost);
+$('#textForm').addEventListener('submit', saveText);
+$('#textReset').addEventListener('click', resetText);
+$('#itemCancel').addEventListener('click', () => { state.editing = null; state.confirmDel = false; renderTools(); renderList(); renderBig(); });
+$('#itemDelete').addEventListener('click', deleteItem);
+$('#f-kind').addEventListener('change', (e) => { $('#f-qty').disabled = e.target.value === 'big'; });
+$('#addSmall').addEventListener('click', () => startAdd('regular'));
+$('#addBig').addEventListener('click', () => startAdd('big'));
+$('#loginBtn').addEventListener('click', async () => {
+  if (!auth) { toast('The database is not connected yet.'); return; }
+  try {
+    if (auth.currentUser) await signOut(auth);
+    else await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (err) { toast("Login didn't finish. Try again."); }
+});
+
+buildTextForm();
+renderAll();
+
+if (db) {
+  const slowTimer = setTimeout(() => { state.slow = true; renderHeader(); }, 10000);
+
+  onAuthStateChanged(auth, (u) => {
+    const ok = !!u && !!HOST_EMAIL && String(u.email || '').toLowerCase() === String(HOST_EMAIL).toLowerCase();
+    if (u && !ok) { toast("That Google account isn't the host."); signOut(auth); return; }
+    state.isHost = ok;
+    if (!ok) { state.hostMode = false; state.editing = null; }
+    $('#loginBtn').textContent = ok ? 'Host log out' : 'Host login';
+    if (ok && state.itemsLoaded && !state.items.length && !state.autoOpened) { state.autoOpened = true; state.hostMode = true; }
+    renderAll();
+  });
+
+  onSnapshot(query(collection(db, 'items'), orderBy('createdAt')), (snap) => {
+    state.items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (!snap.metadata.fromCache) { state.itemsLoaded = true; clearTimeout(slowTimer); }
+    if (state.itemsLoaded && !state.items.length && state.isHost && !state.autoOpened) { state.autoOpened = true; state.hostMode = true; renderAll(); return; }
+    if (state.editing) { const cur = state.items.find((i) => i.id === state.editing.id); if (cur) state.editing = cur; }
+    renderHeader(); renderList(); renderBig();
+  }, () => { state.itemsLoaded = true; state.slow = true; renderHeader(); renderList(); });
+
+  onSnapshot(collection(db, 'claims'), (snap) => {
+    const m = new Map();
+    snap.docs.forEach((d) => m.set(d.id, d.data()));
+    state.claims = m;
+    renderHeader(); renderList();
+  }, () => { /* claims stay empty */ });
+
+  onSnapshot(doc(db, 'config', 'host'), (s) => {
+    state.host = s.exists() ? s.data() : {};
+    renderBig();
+    const f = document.activeElement && document.activeElement.id;
+    if (state.hostMode && f !== 'h-phone') {
+      $('#h-phone').value = state.host.phone || '';
+    }
+  }, () => { /* host details stay empty */ });
+
+  onSnapshot(doc(db, 'config', 'text'), (s) => {
+    textOv = s.exists() ? (s.data() || {}) : {};
+    renderStatic(); renderHeader(); renderList(); renderBig();
+    const f = document.activeElement;
+    if (state.hostMode && !(f && f.closest && f.closest('#textForm'))) fillTextForm();
+  }, () => { /* default text stays */ });
+}
+</script>
+</body>
+</html>
