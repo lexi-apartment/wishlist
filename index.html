@@ -98,8 +98,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .meta { font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .act { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 250px; }
 .row.covered .tile, .row.covered .name { opacity: .55; }
-.row.covered .name { text-decoration-thickness: 1px; }
-.row.bigrow.covered .name { text-decoration: none; }
 .pip {
   width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--muted); background: transparent;
   color: var(--moss-ink); font: 600 0.8rem var(--body); cursor: pointer; display: grid; place-items: center; padding: 0;
@@ -156,6 +154,16 @@ input[type="text"], input[type="number"], input[type="tel"], textarea, select, i
 .btn.pioneer:hover { filter: brightness(1.1); border-color: var(--blue); }
 .donebadge { font-weight: 600; color: var(--moss); padding: 6px 0; }
 .ctext a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.cacts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-top: 2px; }
+.cacts .grp { margin-left: auto; display: flex; gap: 2px; }
+.cact { font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 999px; min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.cact:hover { background: var(--tile); color: var(--ink); }
+.cact.on { color: var(--blue); }
+.cact.danger { color: var(--accent); }
+.cact svg { width: 20px; height: 20px; display: block; }
+.cact .flip { transform: rotate(180deg); }
+.togglelink { font: inherit; font-weight: 600; font-size: 0.92rem; color: var(--blue); background: none; border: 0; padding: 6px 4px; cursor: pointer; align-self: flex-start; }
+.togglelink:hover { text-decoration: underline; }
 .replies { list-style: none; margin: 4px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .comment.reply { background: var(--bg); }
 .comment.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
@@ -429,7 +437,7 @@ const state = {
   items: [], claims: new Map(), chipins: [], comments: [], msgs: {}, pendingSwish: null, host: {}, myName: '',
   uid: null, authFailed: false, editingComment: null, confirmCommentDel: null, claimNames: new Map(), commentAuthors: new Map(),
   isHost: false, hostMode: false, editing: null, confirmDel: false, openBig: null, amounts: {},
-  pending: new Set(), pioneerItem: null, tipItem: null, replyTo: null, expanded: new Set(), itemsLoaded: false, slow: false, autoOpened: false
+  pending: new Set(), pioneerItem: null, tipItem: null, replyTo: null, expanded: new Set(), reactions: new Map(), reactionNames: new Map(), itemsLoaded: false, slow: false, autoOpened: false
 };
 try { state.myName = localStorage.getItem('hw-name') || ''; } catch (e) { /* no storage */ }
 
@@ -895,12 +903,17 @@ function noUidToast() {
 let hostUnsubs = [];
 function setHostSubs(on) {
   hostUnsubs.forEach((u) => u()); hostUnsubs = [];
-  state.claimNames = new Map(); state.commentAuthors = new Map();
+  state.claimNames = new Map(); state.commentAuthors = new Map(); state.reactionNames = new Map();
   if (!on || !db) return;
   hostUnsubs.push(onSnapshot(collection(db, 'claimNames'), (snap) => {
     const m = new Map();
     snap.docs.forEach((d) => m.set(d.id, (d.data() || {}).name || ''));
     state.claimNames = m; renderList();
+  }, () => { /* names stay hidden */ }));
+  hostUnsubs.push(onSnapshot(collection(db, 'reactionNames'), (snap) => {
+    const m = new Map();
+    snap.docs.forEach((d) => m.set(d.id, (d.data() || {}).name || ''));
+    state.reactionNames = m; renderComments();
   }, () => { /* names stay hidden */ }));
   hostUnsubs.push(onSnapshot(collection(db, 'commentAuthors'), (snap) => {
     const m = new Map();
@@ -917,7 +930,7 @@ function renderCommentForm() {
   const anon = $('#c-anon').checked;
   const nm = state.myName.trim();
   const hint = $('#c-anon-hint'); hint.hidden = !anon; hint.textContent = T('anonHint');
-  $('#c-as').textContent = anon ? 'Shown as Anonymous.' : (nm ? 'Posting as ' + nm + '.' : 'Save your name at the top, or tick anonymous.');
+  $('#c-as').textContent = !nm ? 'Save your name at the top first.' : (anon ? 'Shown as Anonymous.' : 'Posting as ' + nm + '.');
   const pi = state.pioneerItem && !state.editingComment && !state.replyTo ? state.items.find((x) => x.id === state.pioneerItem) : null;
   const ph = $('#c-pioneer'); ph.hidden = !pi; ph.textContent = pi ? 'This comment will be linked to "' + pi.name + '".' : '';
   const editing = !!state.editingComment, replying = !!state.replyTo && !editing;
@@ -949,25 +962,72 @@ function whoOf(c) {
   if (!!state.uid && c.uid === state.uid) who += ' (you)';
   return who;
 }
+const ICON_PATHS = {
+  up: 'M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z',
+  reply: 'M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z'
+};
+function icon(name, filled, flip) {
+  const sp = document.createElement('span');
+  sp.className = flip ? 'flip' : '';
+  sp.style.display = 'inline-flex';
+  sp.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICON_PATHS[name] + '" ' +
+    (filled ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"') + '/></svg>';
+  return sp;
+}
+function reactionsOf(id) {
+  const list = state.reactions.get(id) || [];
+  const mine = state.uid ? list.find((r) => r.uid === state.uid) : null;
+  return { up: list.filter((r) => r.v === 1).length, down: list.filter((r) => r.v === -1).length, mine: mine ? mine.v : 0 };
+}
+async function react(c, v) {
+  if (!db) return;
+  if (!state.uid) { noUidToast(); return; }
+  const cur = reactionsOf(c.id).mine;
+  const nm = state.myName.trim();
+  if (cur !== v && !nm) { toast('Save your name at the top first.'); $('#myName').focus(); return; }
+  const key = c.id + '_' + state.uid;
+  try {
+    const b = writeBatch(db);
+    if (cur === v) { b.delete(doc(db, 'reactions', key)); b.delete(doc(db, 'reactionNames', key)); }
+    else {
+      b.set(doc(db, 'reactions', key), { comment: c.id, uid: state.uid, v, at: Date.now() });
+      b.set(doc(db, 'reactionNames', key), { name: nm.slice(0, 40), uid: state.uid });
+    }
+    await b.commit();
+  } catch (err) { toast("Couldn't save that. Try again."); }
+}
 function commentLi(c, topId, replies) {
   const mine = !!state.uid && c.uid === state.uid;
-  const act = h('div', { class: 'editbar' });
-  act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => startReply(topId, c) }, 'Reply'));
-  if (mine) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => startEditComment(c) }, 'Edit'));
-  if (mine || state.isHost) act.append(h('button', { class: 'btn small ghost', type: 'button', onclick: () => deleteComment(c) }, state.confirmCommentDel === c.id ? 'Tap again to delete' : 'Delete'));
+  const r = reactionsOf(c.id);
+  const act = h('div', { class: 'cacts' },
+    h('button', { class: 'cact' + (r.mine === 1 ? ' on' : ''), type: 'button', 'aria-label': 'Like', 'aria-pressed': r.mine === 1 ? 'true' : 'false', onclick: () => react(c, 1) },
+      icon('up', r.mine === 1, false), r.up ? String(r.up) : null),
+    h('button', { class: 'cact' + (r.mine === -1 ? ' on' : ''), type: 'button', 'aria-label': 'Dislike', 'aria-pressed': r.mine === -1 ? 'true' : 'false', onclick: () => react(c, -1) },
+      icon('up', r.mine === -1, true), r.down ? String(r.down) : null),
+    h('button', { class: 'cact', type: 'button', onclick: () => startReply(topId, c) }, icon('reply', false, false), 'Reply'));
+  const grp = h('div', { class: 'grp' });
+  if (mine) grp.append(h('button', { class: 'cact', type: 'button', onclick: () => startEditComment(c) }, 'Edit'));
+  if (mine || state.isHost) grp.append(h('button', { class: 'cact danger', type: 'button', onclick: () => deleteComment(c) }, state.confirmCommentDel === c.id ? 'Tap again to delete' : 'Delete'));
+  if (grp.childNodes.length) act.append(grp);
   const li = h('li', { class: 'comment' + (c.id !== topId ? ' reply' : ''), id: 'cm-' + c.id },
     h('div', { class: 'chead' }, h('b', { text: whoOf(c) }), h('span', { class: 'meta', text: fmtTime(c.at) + (c.editedAt ? ' · edited' : '') })),
     h('p', { class: 'ctext' }, linkify(c.text)),
     act);
+  if (state.isHost) {
+    const rl = state.reactions.get(c.id) || [];
+    const nm = (x) => state.reactionNames.get(c.id + '_' + x.uid) || 'Someone';
+    const ups = rl.filter((x) => x.v === 1).map(nm), downs = rl.filter((x) => x.v === -1).map(nm);
+    if (ups.length || downs.length) li.append(h('p', { class: 'hint', text: [ups.length ? '👍 ' + ups.join(', ') : '', downs.length ? '👎 ' + downs.join(', ') : ''].filter(Boolean).join('   ·   ') }));
+  }
   if (replies && replies.length) {
     const open = state.expanded.has(c.id);
     li.append(h('button', {
-      class: 'btn small ghost', type: 'button', style: 'align-self:flex-start', 'aria-expanded': open ? 'true' : 'false',
+      class: 'togglelink', type: 'button', 'aria-expanded': open ? 'true' : 'false',
       onclick: () => { if (open) state.expanded.delete(c.id); else state.expanded.add(c.id); renderComments(); }
-    }, open ? 'Hide replies' : (replies.length === 1 ? 'Show 1 reply' : 'Show ' + replies.length + ' replies')));
+    }, open ? '▴ Hide replies' : (replies.length === 1 ? '▾ See 1 reply' : '▾ See ' + replies.length + ' replies')));
     if (open) {
       const rl = h('ul', { class: 'replies' });
-      replies.forEach((r) => rl.append(commentLi(r, c.id, null)));
+      replies.forEach((x) => rl.append(commentLi(x, c.id, null)));
       li.append(rl);
     }
   }
@@ -1017,7 +1077,7 @@ async function postComment(ev) {
   if (!text) { toast('Write something first.'); return; }
   const anonymous = $('#c-anon').checked;
   const nm = state.myName.trim();
-  if (!anonymous && !nm) { toast('Save your name at the top, or tick anonymous.'); return; }
+  if (!nm) { toast('Save your name at the top first.'); $('#myName').focus(); return; }
   const btn = $('#c-post'); btn.disabled = true;
   try {
     const b = writeBatch(db);
@@ -1179,6 +1239,12 @@ if (db) {
     state.comments = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderComments(); renderList();
   }, () => { /* comments stay empty */ });
+
+  onSnapshot(collection(db, 'reactions'), (snap) => {
+    const m = new Map();
+    snap.docs.forEach((d) => { const x = d.data() || {}; if (!x.comment) return; if (!m.has(x.comment)) m.set(x.comment, []); m.get(x.comment).push({ uid: x.uid, v: x.v }); });
+    state.reactions = m; renderComments();
+  }, () => { /* no reactions shown */ });
 
   onSnapshot(collection(db, 'chipins'), (snap) => {
     state.chipins = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
